@@ -20,6 +20,6 @@ In this repository, I will brush up on C, dive deeper into low-level programming
 - **Develop kernels accessible with PyTorch**
 - **Explore higher-level CUDA abstractions**:
   - Triton (used by PyTorch)
-  - Taichi
+  - Taichi (a DSL with python frontend)
 - **Brush up on 2nd-year Fluid Mechanics**:
   - Simulate air tunnel flow over a 2D airfoil with Taichi
