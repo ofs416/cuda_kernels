@@ -1,15 +1,25 @@
-# cuda_kernels
+# CUDA Kernels
 
-In this repository I will brush up on c, dive deeper into low-level programming and optimisations to aide scientific computing.
-Most scientific programming I do involves large tensors, hence understanding the concepts required to effectively use parallel programming and efficient memory access will increase overall workflow efficiency.
+In this repository, I will brush up on C, dive deeper into low-level programming, and optimizations to aid scientific computing. Most scientific programming I do involves large tensors. Hence, understanding the concepts required to effectively use parallel programming and efficient memory access will increase overall workflow efficiency.
 
 ## Objectives
 
-- Familiarise myself with c: syntax, pointers, structs, memory management (basically things not present in python which I'm most familiar with)
-- Understand low-level conceptes, such as caching, in-order to optimise code (such as row-major vs column-major matrices)
-- Learn cuda c, implementing my own matmul kernel with different levels of optimisation (tiling and more)
-- Create a perceptron using CuBlas and it's ability to merge kernels
-- Create kernels that can be accessed with pytorch
-- Explore higher-level abstractions of cuda such as Triton - used by pytorch - and Taichi
-- Brush up on 2nd year Fluid mechanics and create an simulated air tunnel flow over a 2D airfoil with Taichi
-
+- **Familiarize with C**: 
+  - Syntax
+  - Pointers
+  - Structs
+  - Memory management
+  - (Basically things not present in Python, which I'm most familiar with)
+- **Understand low-level concepts**:
+  - Caching
+  - Optimizing code (e.g., row-major vs column-major matrices)
+- **Learn CUDA C**:
+  - Implement my own matrix multiplication kernel with different levels of optimization (e.g., tiling)
+- **Create a perceptron using CuBLAS**:
+  - Leverage its ability to merge kernels
+- **Develop kernels accessible with PyTorch**
+- **Explore higher-level CUDA abstractions**:
+  - Triton (used by PyTorch)
+  - Taichi
+- **Brush up on 2nd-year Fluid Mechanics**:
+  - Simulate air tunnel flow over a 2D airfoil with Taichi
