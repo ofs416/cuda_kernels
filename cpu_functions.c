@@ -6,6 +6,8 @@ void vectorAdditionCPU (float *a, float *b, float *c, int n) {
   }
 }
 
+\\ Note the next two function use pointers to existing variables.
+\\ Furthermore, the matrices are stored in 1D arrays that are column-major.
 void matrixAdditionCPU (float *A, float *B, float *C, int n) {
   for (int i = 0; i < n; i++){
     for (int j = 0; j < n; j++){
