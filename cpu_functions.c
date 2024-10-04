@@ -2,10 +2,6 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define N 1024
-#define K 512
-#define M 2048
-
 // Timing
 double getTime() {
     struct timespec ts;
@@ -43,45 +39,3 @@ void matrixMultiplicationCPU (float *A, float *B, float *C, int n, int k, int m)
   }
 }
 
-void main() {
-    // Initialise pointers to the matrices
-    float *A, *B, *C;
-
-    // Calculate mem size
-    int sizeA = N * K * sizeof(float);
-    int sizeB = K * M * sizeof(float);
-    int sizeC = N * M * sizeof(float);
-
-    // Allocate memory
-    A = (float*)malloc(sizeA);
-    B = (float*)malloc(sizeB);
-    C = (float*)malloc(sizeC);
-
-    // Initialise the matrices
-    srand(time(NULL));
-    MatrixInit(A, N, K);
-    MatrixInit(B, K, M);
-
-    // Warm-up
-    printf("Warming up\n");
-    for (int i = 0; i < 5; i++){
-        matrixMultiplicationCPU(A, B, C, N, K, M);
-    }
-
-    // Benchmark
-    printf("Benchmarking\n");
-    double totalTime = 0.0;
-    for (int i = 0; i < 20; i++){
-        double startTime = getTime();
-        matrixMultiplicationCPU(A, B, C, N, K, M);
-        double endTime = getTime();
-        totalTime += endTime - startTime;
-    }
-    double avgTime = totalTime / 20.0;
-    printf("CPU average time: %f ms\n", (avgTime * 1e6f));
-
-    // Free memory
-    free(A);
-    free(B);
-    free(C);
-}
