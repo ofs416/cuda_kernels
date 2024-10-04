@@ -14,7 +14,7 @@ double getTime() {
 }
 
 // Matrix initialisation
-void MatrixInit(float *a, int row, int col) {
+void initMatrix(float *a, int row, int col) {
     for (int i = 0; i < row * col; i++){
         a[i] = (float)rand() / RAND_MAX;
     }
