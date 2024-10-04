@@ -3,7 +3,9 @@
 #include <time.h>
 #include <cuda_runtime.h>
 
+extern "C" { 
 #include "cpu_functions.h"
+}
 
 #define N 256  // Number of rows in A and C
 #define K 512   // Number of columns in A and rows in B
