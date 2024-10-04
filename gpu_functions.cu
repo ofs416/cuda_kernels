@@ -15,7 +15,7 @@ __global__ void matrixAdditionGPU (float *A, float *B, float *C, int n) {
     int row = blockIdx.y * blockDim.y + threadIdx.y;
     int col = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (row < n && col < m) {
+    if (row < n && col < n) {
         C[n * row + col] = A[n * row + col] + B[n * row + col];
     }
 }
@@ -27,7 +27,7 @@ __global__ void matrixMultiplicationGPU (float *A, float *B, float *C, int n, in
 
     if (row < n && col < m) {
         float sum = 0.0f;
-        for (int l = 0; i < k; i++) {
+        for (int l = 0; l < k; l++) {
             sum += A[row * k + l] * B[l * m + col];
         }
         C[m * row + col] = sum;
