@@ -27,13 +27,13 @@ void matrixAdditionCPU (float *A, float *B, float *C, int n) {
 
 // (N x K) @ (K x M)
 void matrixMultiplicationCPU (float *A, float *B, float *C, int n, int k, int m) {
-  for (int i = 0; i < n; i++){
-    for (int j = 0; j < m; j++){
+  for (int i = 0; i < m; i++){
+    for (int j = 0; j < n; j++){
       float sum = 0.0f;
       for (int l = 0; l < k; l++){
-        sum += A[i * k + l] * B[l * m + j];
+        sum += A[i * k + l] * B[l * n + j];
       }
-      C[i * m + j] = sum;
+      C[i * n + j] = sum;
     }
   }
 }
