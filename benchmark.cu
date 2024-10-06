@@ -20,7 +20,7 @@ int main() {
     int size_B = K * N * sizeof(float);
     int size_C = M * N * sizeof(float);
 
-    // Allocate host memory
+    // Allocate host memory (for cpu benchmarks)
     h_A = (float*)malloc(size_A);
     h_B = (float*)malloc(size_B);
     h_C_cpu = (float*)malloc(size_C);
@@ -55,38 +55,66 @@ int main() {
     }
 
     // Benchmark CPU implementation
-    printf("Benchmarking matrixMultiplicationGPU\n");
-    double cpuTotalTime = 0.0;
-    for (int i = 0; i < 20; i++) {
-        double startTime = getTime();
-        matrixMultiplicationGPU<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
-        double endTime = getTime();
-        cpuTotalTime += endTime - startTime;
-    }
-    double cpuAvgTime = cpuTotalTime / 20.0;
+    // printf("Benchmarking matrixMultiplicationCPU\n");
+    // double cpuTotalTime = 0.0;
+    // for (int i = 0; i < 20; i++) {
+    //    double startTime = getTime();
+    //    matrixMultiplicationCPU(h_A, h_B, h_C_cpu, N, K, M);
+    //    double endTime = getTime();
+    //    cpuTotalTime += endTime - startTime;
+    //}
+    // double cpuAvgTime = cpuTotalTime / 20.0;
 
-    // Benchmark GPU implementation
-    printf("Benchmarking gemm_gmc\n");
-    double gpuTotalTime = 0.0;
-    for (int i = 0; i < 20; i++) {
-        double startTime = getTime();
-        gemm_gmc<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
-        cudaDeviceSynchronize();
-        double endTime = getTime();
-        gpuTotalTime += endTime - startTime;
+    // Create events
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
+    // Benchmark GPU implementation 1
+    printf("Benchmarking imp 1\n");
+    float totalMilliseconds = 0;
+    for (int i = 0; i < 100; i++) {
+        // Record start event
+        cudaEventRecord(start, 0);
+        // Launch kernel
+        matrixMultiplicationGPU<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
+        // Record stop event
+        cudaEventRecord(stop, 0);
+        cudaEventSynchronize(stop);
+        // Calculate elapsed time
+        float milliseconds = 0;
+        cudaEventElapsedTime(&milliseconds, start, stop);
+        totalMilliseconds += milliseconds;
     }
-    double gpuAvgTime = gpuTotalTime / 20.0;
+    float avgMilliseconds1 = totalMilliseconds / 100.0f;
+
+    // Benchmark implementation 2
+    printf("Benchmarking imp 2\n");
+    totalMilliseconds = 0;
+    for (int i = 0; i < 100; i++) {
+        cudaEventRecord(start, 0);
+        gemm_gmc<<<gridDim, blockDim1D>>>(d_A, d_B, d_C, N, K, M);
+        cudaEventRecord(stop, 0);
+        cudaEventSynchronize(stop);
+        float milliseconds = 0;
+        cudaEventElapsedTime(&milliseconds, start, stop);
+        totalMilliseconds += milliseconds;
+    }
+    float avgMilliseconds2 = totalMilliseconds / 100.0f;
+
 
     // Print results
-    printf("matrixMultiplicationGPU average time: %f microseconds\n", (cpuAvgTime * 1e6f));
-    printf("gemm_gmc average time: %f microseconds\n", (gpuAvgTime * 1e6f));
-    printf("Speedup: %fx\n", cpuAvgTime / gpuAvgTime);
+    printf("Average time for 1: %f ms\n", avgMilliseconds1);
+    printf("Average time for 2: %f ms\n", avgMilliseconds2);
+    printf("speed up from 2: %f\n", avgMilliseconds1/avgMilliseconds2);
 
     // Free memory
     free(h_A);
     free(h_B);
     free(h_C_cpu);
     free(h_C_gpu);
+    cudaEventDestroy(start);
+    cudaEventDestroy(stop);
     cudaFree(d_A);
     cudaFree(d_B);
     cudaFree(d_C);
