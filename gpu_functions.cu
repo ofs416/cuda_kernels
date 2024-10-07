@@ -51,7 +51,7 @@ __global__ void gemm_gmc (float *A, float *B, float *C, int n, int k, int m) {
 // Global memory has a bandwidth of <1,000GB/s 
 // Each thread block is responsible for computing a sub-matrix of C
 // Each thread block loads a tile of A and B into shared memory
-__global__ void smem_gmc(float *A, float *B, float *C, int n, int k, int m) {
+__global__ void gemm_smem(float *A, float *B, float *C, int n, int k, int m) {
     __shared__ float A_shared[BLOCK_SIZE * BLOCK_SIZE];
     __shared__ float B_shared[BLOCK_SIZE * BLOCK_SIZE];
 

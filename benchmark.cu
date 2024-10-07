@@ -8,9 +8,9 @@ extern "C" {
 }
 #include "gpu_functions.h"
 
-#define N 1024  // Number of rows in A and C
-#define K 512   // Number of columns in A and rows in B
-#define M 1024  // Number of columns in B and C
+#define N 2048  // Number of rows in A and C
+#define K 1024   // Number of columns in A and rows in B
+#define M 2048  // Number of columns in B and C
 #define BLOCK_SIZE 32
 
 int main() {
@@ -51,6 +51,7 @@ int main() {
     for (int i = 0; i < 5; i++) {
         matrixMultiplicationGPU<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
         gemm_gmc<<<gridDim, blockDim1D>>>(d_A, d_B, d_C, N, K, M);
+        gemm_smem<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
         cudaDeviceSynchronize();
     }
 
@@ -102,11 +103,26 @@ int main() {
     }
     float avgMilliseconds2 = totalMilliseconds / 100.0f;
 
+        // Benchmark implementation 2
+    printf("Benchmarking imp 3\n");
+    totalMilliseconds = 0;
+    for (int i = 0; i < 100; i++) {
+        cudaEventRecord(start, 0);
+        gemm_smem<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
+        cudaEventRecord(stop, 0);
+        cudaEventSynchronize(stop);
+        float milliseconds = 0;
+        cudaEventElapsedTime(&milliseconds, start, stop);
+        totalMilliseconds += milliseconds;
+    }
+    float avgMilliseconds3 = totalMilliseconds / 100.0f;
 
     // Print results
     printf("Average time for 1: %f ms\n", avgMilliseconds1);
     printf("Average time for 2: %f ms\n", avgMilliseconds2);
+    printf("Average time for 3: %f ms\n", avgMilliseconds3);
     printf("speed up from 2: %f\n", avgMilliseconds1/avgMilliseconds2);
+    printf("speed up from 3: %f\n", avgMilliseconds1/avgMilliseconds3);
 
     // Free memory
     free(h_A);
