@@ -49,7 +49,7 @@ int main() {
     // Warm-up runs
     printf("Performing warm-up runs...\n");
     for (int i = 0; i < 5; i++) {
-        matrixMultiplicationGPU<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
+        gemm<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
         gemm_gmc<<<gridDim, blockDim1D>>>(d_A, d_B, d_C, N, K, M);
         gemm_smem<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
         cudaDeviceSynchronize();
@@ -78,7 +78,7 @@ int main() {
         // Record start event
         cudaEventRecord(start, 0);
         // Launch kernel
-        matrixMultiplicationGPU<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
+        gemm<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
         // Record stop event
         cudaEventRecord(stop, 0);
         cudaEventSynchronize(stop);

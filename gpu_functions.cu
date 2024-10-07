@@ -14,7 +14,7 @@ __global__ void matrixAdditionGPU (float *A, float *B, float *C, int n) {
 }
 
 // Naive CUDA kernel for matrix multiplication (N x K) @ (K x M)
-__global__ void matrixMultiplicationGPU (float *A, float *B, float *C, int n, int k, int m) {
+__global__ void gemm (float *A, float *B, float *C, int n, int k, int m) {
     const uint row = blockIdx.x * blockDim.x + threadIdx.x;
     const uint col = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -55,14 +55,14 @@ __global__ void gemm_smem(float *A, float *B, float *C, int n, int k, int m) {
     __shared__ float A_shared[BLOCK_SIZE * BLOCK_SIZE];
     __shared__ float B_shared[BLOCK_SIZE * BLOCK_SIZE];
 
-    const uint blockRow = blockIdx.x;
-    const uint blockCol = blockIdx.y;
+    const uint cRow = blockIdx.x;
+    const uint cCol = blockIdx.y;
     const uint threadCol = threadIdx.x % BLOCK_SIZE;
     const uint threadRow = threadIdx.x / BLOCK_SIZE;
 
-    A += blockRow * BLOCK_SIZE * k;                  
-    B += blockCol * BLOCK_SIZE;                       
-    C += blockRow * BLOCK_SIZE * n + blockCol * BLOCK_SIZE; 
+    A += cRow * BLOCK_SIZE * k;                  
+    B += cCol * BLOCK_SIZE;                       
+    C += cRow * BLOCK_SIZE * n + cCol * BLOCK_SIZE; 
 
     float tmp = 0.0f;
     for (int blkIdx = 0; blkIdx < k; blkIdx += BLOCK_SIZE) {
@@ -74,9 +74,64 @@ __global__ void gemm_smem(float *A, float *B, float *C, int n, int k, int m) {
         B += BLOCK_SIZE * n;
 
         for (int dotIdx = 0; dotIdx < BLOCK_SIZE; ++dotIdx) {
-            tmp += A_shared[threadRow * BLOCK_SIZE + dotIdx] * B_shared[dotIdx * BLOCK_SIZE + threadCol];
+            tmp += 
+            A_shared[threadRow * BLOCK_SIZE + dotIdx] * B_shared[dotIdx * BLOCK_SIZE + threadCol];
         }
         __syncthreads();
     }
     C[threadRow * n + threadCol] = tmp;
+}
+
+// SMEM per block is roughly 9KB (much less than the potential 48KB) 
+// Although this is not the limiting factor here, instead the function above
+// suffers from MIO stalls as it waits for SMEM accesses to return
+// This can be mitigated by using 1D blocktiling to calc multiple results per thread
+// Now each thread is responsible for computing a column of the block in C
+__global__ void gemm_1DBlockTiling (float *A, float *B, float *C, int n, int k, int m) {
+    const uint BM = 64;
+    const uint BN = 64;
+    const uint BK = 8;
+    const uint TM = 8;
+
+    __shared__ float A_shared[BM * BK];
+    __shared__ float B_shared[BK * BN];
+    
+    const uint cRow = blockIdx.y;
+    const uint cCol = blockIdx.x;
+    const uint threadCol = threadIdx.x % BN;
+    const uint threadRow = threadIdx.x / BN;
+
+    assert(BM * BK == blockDim.x);
+    assert(BN * BK == blockDim.x);
+    const uint innerColA = threadIdx.x % BK;
+    const uint innerRowA = threadIdx.x / BK;
+    const uint innerColB = threadIdx.x % BN;
+    const uint innerRowB = threadIdx.x / BN;
+
+    A += cRow * BM * K;
+    B += cCol * BN;
+    C += cRow * BM * N + cCol * BN;
+
+    float threadResults[TM] = {0.0};
+    for (uint blkIdx = 0; blkIdx < K; blkIdx += BK) {
+        A_shared[innerRowA * BK + innerColA] = A[innerRowA * K + innerColA];
+        B_shared[innerRowB * BN + innerColB] = B[innerRowB * N + innerColB];
+        __syncthreads();
+
+        A += BK;
+        B += BK * N;
+
+        for (uint dotIdx = 0; dotIdx < BK; ++dotIdx) {
+            float tmpB = B_shared[dotIdx * BN + threadCol];
+            for (uint resIdx = 0; resIdx < TM; ++resIdx) {
+                threadResults[resIdx] +=
+                    A_shared[(threadRow * TM + resIdx) * BK + dotIdx] * tmpB;
+            }
+        }
+        __syncthreads();
+    }
+
+    for (uint resIdx = 0; resIdx < TM; ++resIdx) {
+        C[(threadRow * TM + resIdx) * N + threadCol] = threadResults[resIdx] 
+    }
 }
