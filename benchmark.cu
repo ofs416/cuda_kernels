@@ -9,7 +9,7 @@ extern "C" {
 #include "gpu_functions.h"
 
 #define N 2048  // Number of rows in A and C
-#define K 1024   // Number of columns in A and rows in B
+#define K 2048   // Number of columns in A and rows in B
 #define M 2048  // Number of columns in B and C
 #define BLOCK_SIZE 32
 
@@ -50,7 +50,9 @@ int main() {
     printf("Performing warm-up runs...\n");
     for (int i = 0; i < 5; i++) {
         gemm<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
+        cudaDeviceSynchronize();
         gemm_gmc<<<gridDim, blockDim1D>>>(d_A, d_B, d_C, N, K, M);
+        cudaDeviceSynchronize();
         gemm_smem<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
         cudaDeviceSynchronize();
     }
@@ -71,58 +73,69 @@ int main() {
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
+    float elapsed_time;
+    float repeats = 100.0f;
+    long flops = 2 * M * N * K;
+
     // Benchmark GPU implementation 1
     printf("Benchmarking imp 1\n");
-    float totalMilliseconds = 0;
-    for (int i = 0; i < 100; i++) {
-        // Record start event
-        cudaEventRecord(start, 0);
-        // Launch kernel
+    cudaEventRecord(start);
+    for (int i = 0; i < repeats; i++) {
         gemm<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
-        // Record stop event
-        cudaEventRecord(stop, 0);
-        cudaEventSynchronize(stop);
-        // Calculate elapsed time
-        float milliseconds = 0;
-        cudaEventElapsedTime(&milliseconds, start, stop);
-        totalMilliseconds += milliseconds;
     }
-    float avgMilliseconds1 = totalMilliseconds / 100.0f;
+    cudaEventRecord(stop);
+    cudaEventSynchronize(start);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&elapsed_time, start, stop);
+    printf(
+        "(1) Avg time: %f ms, performance: (%7.1f) GFLOP\n", 
+        elapsed_time / repeats, 
+        (repeat_times * flops * 1e-9) / elapsed_time);
 
     // Benchmark implementation 2
     printf("Benchmarking imp 2\n");
-    totalMilliseconds = 0;
-    for (int i = 0; i < 100; i++) {
-        cudaEventRecord(start, 0);
-        gemm_gmc<<<gridDim, blockDim1D>>>(d_A, d_B, d_C, N, K, M);
-        cudaEventRecord(stop, 0);
-        cudaEventSynchronize(stop);
-        float milliseconds = 0;
-        cudaEventElapsedTime(&milliseconds, start, stop);
-        totalMilliseconds += milliseconds;
+    cudaEventRecord(start);
+    for (int i = 0; i < repeats; i++) {
+        gemm_gmc<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
     }
-    float avgMilliseconds2 = totalMilliseconds / 100.0f;
+    cudaEventRecord(stop);
+    cudaEventSynchronize(start);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&elapsed_time, start, stop);
+    printf(
+        "(2) Avg time: %f ms, performance: (%7.1f) GFLOP\n", 
+        elapsed_time / repeats, 
+        (repeat_times * flops * 1e-9) / elapsed_time);
 
-        // Benchmark implementation 2
+    // Benchmark implementation 2
     printf("Benchmarking imp 3\n");
-    totalMilliseconds = 0;
-    for (int i = 0; i < 100; i++) {
-        cudaEventRecord(start, 0);
+    cudaEventRecord(start);
+    for (int i = 0; i < repeats; i++) {
         gemm_smem<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
-        cudaEventRecord(stop, 0);
-        cudaEventSynchronize(stop);
-        float milliseconds = 0;
-        cudaEventElapsedTime(&milliseconds, start, stop);
-        totalMilliseconds += milliseconds;
     }
-    float avgMilliseconds3 = totalMilliseconds / 100.0f;
+    cudaEventRecord(stop);
+    cudaEventSynchronize(start);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&elapsed_time, start, stop);
+    printf(
+        "(3) Avg time: %f ms, performance: (%7.1f) GFLOP\n", 
+        elapsed_time / repeats, 
+        (repeat_times * flops * 1e-9) / elapsed_time);
 
-    // Print results
-    printf("Average time for 1: %f ms\n", avgMilliseconds1);
-    printf("Average time for 2: %f ms\n", avgMilliseconds2);
-    printf("Average time for 3: %f ms\n", avgMilliseconds3);
-    printf("speed up from 2: %f\n", avgMilliseconds1/avgMilliseconds2);
-    printf("speed up from 3: %f\n", avgMilliseconds1/avgMilliseconds3);
+    // Benchmark implementation 4
+    printf("Benchmarking imp 4\n");
+    cudaEventRecord(start);
+    for (int i = 0; i < repeats; i++) {
+        gemm_1DBlockTiling<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
+    }
+    cudaEventRecord(stop);
+    cudaEventSynchronize(start);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&elapsed_time, start, stop);
+    printf(
+        "(4) Avg time: %f ms, performance: (%7.1f) GFLOP\n", 
+        elapsed_time / repeats, 
+        (repeat_times * flops * 1e-9) / elapsed_time);
 
     // Free memory
     free(h_A);
