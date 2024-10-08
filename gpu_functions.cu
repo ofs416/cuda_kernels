@@ -1,5 +1,5 @@
 #include <cuda_runtime.h>
-#include "gpu_functions.h"
+#include "gpu_functions.cuh"
 
 #define BLOCK_SIZE 32
 
@@ -88,10 +88,10 @@ __global__ void gemm_smem(float *A, float *B, float *C, int n, int k, int m) {
 // This can be mitigated by using 1D blocktiling to calc multiple results per thread
 // Now each thread is responsible for computing a column of the block in C
 __global__ void gemm_1DBlockTiling (float *A, float *B, float *C, int n, int k, int m) {
-    const uint BM = 64;
-    const uint BN = 64;
-    const uint BK = 8;
-    const uint TM = 8;
+    const int BM = 64;
+    const int BN = 64;
+    const int BK = 8;
+    const int TM = 8;
 
     __shared__ float A_shared[BM * BK];
     __shared__ float B_shared[BK * BN];
@@ -101,25 +101,23 @@ __global__ void gemm_1DBlockTiling (float *A, float *B, float *C, int n, int k, 
     const uint threadCol = threadIdx.x % BN;
     const uint threadRow = threadIdx.x / BN;
 
-    assert(BM * BK == blockDim.x);
-    assert(BN * BK == blockDim.x);
     const uint innerColA = threadIdx.x % BK;
     const uint innerRowA = threadIdx.x / BK;
     const uint innerColB = threadIdx.x % BN;
     const uint innerRowB = threadIdx.x / BN;
 
-    A += cRow * BM * K;
+    A += cRow * BM * k;
     B += cCol * BN;
-    C += cRow * BM * N + cCol * BN;
+    C += cRow * BM * n + cCol * BN;
 
     float threadResults[TM] = {0.0};
-    for (uint blkIdx = 0; blkIdx < K; blkIdx += BK) {
-        A_shared[innerRowA * BK + innerColA] = A[innerRowA * K + innerColA];
-        B_shared[innerRowB * BN + innerColB] = B[innerRowB * N + innerColB];
+    for (uint blkIdx = 0; blkIdx < k; blkIdx += BK) {
+        A_shared[innerRowA * BK + innerColA] = A[innerRowA * k + innerColA];
+        B_shared[innerRowB * BN + innerColB] = B[innerRowB * n + innerColB];
         __syncthreads();
 
         A += BK;
-        B += BK * N;
+        B += BK * n;
 
         for (uint dotIdx = 0; dotIdx < BK; ++dotIdx) {
             float tmpB = B_shared[dotIdx * BN + threadCol];
@@ -132,6 +130,6 @@ __global__ void gemm_1DBlockTiling (float *A, float *B, float *C, int n, int k, 
     }
 
     for (uint resIdx = 0; resIdx < TM; ++resIdx) {
-        C[(threadRow * TM + resIdx) * N + threadCol] = threadResults[resIdx] 
+        C[(threadRow * TM + resIdx) * n + threadCol] = threadResults[resIdx];
     }
 }
