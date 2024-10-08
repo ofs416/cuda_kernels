@@ -78,11 +78,7 @@ int main() {
 
     float elapsed_time;
     float repeats = 100.0f;
-<<<<<<< HEAD
     long long flops = 2LL * M * N * K;
-=======
-    long flops = 2 * M * N * K;
->>>>>>> 97aac9a (Update benchmark.cu)
 
     // Benchmark GPU implementation 1
     printf("Benchmarking imp 1\n");
@@ -95,15 +91,9 @@ int main() {
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&elapsed_time, start, stop);
     printf(
-<<<<<<< HEAD
         "(1) Avg time: %f ms, performance: %f GFLOP\n", 
         elapsed_time / repeats, 
         (repeats * flops * 1e-9) / elapsed_time);
-=======
-        "(1) Avg time: %f ms, performance: (%7.1f) GFLOP\n", 
-        elapsed_time / repeats, 
-        (repeat_times * flops * 1e-9) / elapsed_time);
->>>>>>> 97aac9a (Update benchmark.cu)
 
     // Benchmark implementation 2
     printf("Benchmarking imp 2\n");
@@ -116,15 +106,9 @@ int main() {
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&elapsed_time, start, stop);
     printf(
-<<<<<<< HEAD
         "(2) Avg time: %f ms, performance: %f GFLOP\n", 
         elapsed_time / repeats, 
         (repeats * flops * 1e-9) / elapsed_time);
-=======
-        "(2) Avg time: %f ms, performance: (%7.1f) GFLOP\n", 
-        elapsed_time / repeats, 
-        (repeat_times * flops * 1e-9) / elapsed_time);
->>>>>>> 97aac9a (Update benchmark.cu)
 
     // Benchmark implementation 2
     printf("Benchmarking imp 3\n");
@@ -137,40 +121,24 @@ int main() {
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&elapsed_time, start, stop);
     printf(
-<<<<<<< HEAD
         "(3) Avg time: %f ms, performance: %f GFLOP\n", 
         elapsed_time / repeats, 
         (repeats * flops * 1e-9) / elapsed_time);
-=======
-        "(3) Avg time: %f ms, performance: (%7.1f) GFLOP\n", 
-        elapsed_time / repeats, 
-        (repeat_times * flops * 1e-9) / elapsed_time);
->>>>>>> 97aac9a (Update benchmark.cu)
 
     // Benchmark implementation 4
     printf("Benchmarking imp 4\n");
     cudaEventRecord(start);
     for (int i = 0; i < repeats; i++) {
-<<<<<<< HEAD
         gemm_1DBlockTiling<<<gridDim4, blockDim4>>>(d_A, d_B, d_C, N, K, M);
-=======
-        gemm_1DBlockTiling<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
->>>>>>> 97aac9a (Update benchmark.cu)
     }
     cudaEventRecord(stop);
     cudaEventSynchronize(start);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&elapsed_time, start, stop);
     printf(
-<<<<<<< HEAD
         "(4) Avg time: %f ms, performance: %f GFLOP\n", 
         elapsed_time / repeats, 
         (repeats * flops * 1e-9) / elapsed_time);
-=======
-        "(4) Avg time: %f ms, performance: (%7.1f) GFLOP\n", 
-        elapsed_time / repeats, 
-        (repeat_times * flops * 1e-9) / elapsed_time);
->>>>>>> 97aac9a (Update benchmark.cu)
 
     // Free memory
     free(h_A);
