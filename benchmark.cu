@@ -82,6 +82,8 @@ int main() {
                N, d_A, CUDA_R_32F, K, &beta, d_C, CUDA_R_32F, N, CUBLAS_COMPUTE_32F,
                CUBLAS_GEMM_DEFAULT_TENSOR_OP);
         cudaDeviceSynchronize();
+        gemm_vectorised<<<gridDim5, blockDim5>>>(d_A, d_B, d_C, N, K, M);
+        cudaDeviceSynchronize();
     }
 
     // Benchmark CPU implementation
@@ -153,7 +155,7 @@ int main() {
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&elapsed_time, start, stop);
     printf(
-        "(2) Avg time: %f ms, performance: %f GFLOP, %f %% \n", 
+        "(3) Avg time: %f ms, performance: %f GFLOP, %f %% \n", 
         elapsed_time / repeats, 
         (repeats * flops * 1e-9) / elapsed_time,
         (100 * (repeats * flops * 1e-9) / elapsed_time) / CuBlas_GFLOP);
@@ -168,7 +170,7 @@ int main() {
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&elapsed_time, start, stop);
     printf(
-        "(2) Avg time: %f ms, performance: %f GFLOP, %f %% \n", 
+        "(4) Avg time: %f ms, performance: %f GFLOP, %f %% \n", 
         elapsed_time / repeats, 
         (repeats * flops * 1e-9) / elapsed_time,
         (100 * (repeats * flops * 1e-9) / elapsed_time) / CuBlas_GFLOP);
@@ -183,7 +185,22 @@ int main() {
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&elapsed_time, start, stop);
     printf(
-        "(2) Avg time: %f ms, performance: %f GFLOP, %f %% \n", 
+        "(5) Avg time: %f ms, performance: %f GFLOP, %f %% \n", 
+        elapsed_time / repeats, 
+        (repeats * flops * 1e-9) / elapsed_time,
+        (100 * (repeats * flops * 1e-9) / elapsed_time) / CuBlas_GFLOP);
+
+    // Benchmark implementation 6
+    cudaEventRecord(start);
+    for (int i = 0; i < repeats; i++) {
+        gemm_vectorised<<<gridDim5, blockDim5>>>(d_A, d_B, d_C, N, K, M);
+    }
+    cudaEventRecord(stop);
+    cudaEventSynchronize(start);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&elapsed_time, start, stop);
+    printf(
+        "(6) Avg time: %f ms, performance: %f GFLOP, %f %% \n", 
         elapsed_time / repeats, 
         (repeats * flops * 1e-9) / elapsed_time,
         (100 * (repeats * flops * 1e-9) / elapsed_time) / CuBlas_GFLOP);
