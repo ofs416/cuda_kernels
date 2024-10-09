@@ -2,15 +2,17 @@
 #include <stdio.h>
 #include <time.h>
 #include <cuda_runtime.h>
+#include <cublas_v2.h>
+#include <iostream>
 
 extern "C" { 
 #include "cpu_functions.h"
 }
 #include "gpu_functions.cuh"
 
-#define N 2048  // Number of rows in A and C
-#define K 2048   // Number of columns in A and rows in B
-#define M 2048  // Number of columns in B and C
+#define N 8192  
+#define K 8192  
+#define M 8192  
 #define BLOCK_SIZE 32
 
 int main() {
@@ -40,12 +42,28 @@ int main() {
     cudaMemcpy(d_A, h_A, size_A, cudaMemcpyHostToDevice);
     cudaMemcpy(d_B, h_B, size_B, cudaMemcpyHostToDevice);
 
+    cublasHandle_t handle;
+    cublasCreate(&handle);
+    // Create events
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
+    float elapsed_time;
+    float repeats = 50.0f;
+    long long flops = 2LL * M * N * K;
+
     // Define grid and block dimensions
     dim3 blockDim(BLOCK_SIZE, BLOCK_SIZE);
     dim3 gridDim((N + BLOCK_SIZE - 1) / BLOCK_SIZE, (M + BLOCK_SIZE - 1) / BLOCK_SIZE);
     dim3 blockDim1D(BLOCK_SIZE * BLOCK_SIZE);
     dim3 gridDim4((N + 64 - 1) / 64, (M + 64 - 1) / 64);
     dim3 blockDim4((64 * 64) / 8);
+    dim3 gridDim5((N + 128 - 1) / 128, (M + 128 - 1) / 128);
+    dim3 blockDim5((128 * 128) / (8 * 8));
+
+    float alpha = 1.0f;
+    float beta = 0.0f;
 
     // Warm-up runs
     printf("Performing warm-up runs...\n");
@@ -57,6 +75,12 @@ int main() {
         gemm_smem<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
         cudaDeviceSynchronize();
         gemm_1DBlockTiling<<<gridDim4, blockDim4>>>(d_A, d_B, d_C, N, K, M);
+        cudaDeviceSynchronize();
+        gemm_2DBlockTiling<<<gridDim5, blockDim5>>>(d_A, d_B, d_C, N, K, M);
+        cudaDeviceSynchronize();
+        cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, d_B, CUDA_R_32F,
+               N, d_A, CUDA_R_32F, K, &beta, d_C, CUDA_R_32F, N, CUBLAS_COMPUTE_32F,
+               CUBLAS_GEMM_DEFAULT_TENSOR_OP);
         cudaDeviceSynchronize();
     }
 
@@ -71,17 +95,25 @@ int main() {
     //}
     // double cpuAvgTime = cpuTotalTime / 20.0;
 
-    // Create events
-    cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-
-    float elapsed_time;
-    float repeats = 100.0f;
-    long long flops = 2LL * M * N * K;
+    // Benchmark CuBlas
+    cudaEventRecord(start);
+    for (int i = 0; i < repeats; i++) {
+        cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, d_B, CUDA_R_32F,
+               N, d_A, CUDA_R_32F, K, &beta, d_C, CUDA_R_32F, N, CUBLAS_COMPUTE_32F,
+               CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+    }
+    cudaEventRecord(stop);
+    cudaEventSynchronize(start);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&elapsed_time, start, stop);
+    double CuBlas_GFLOP = (repeats * flops * 1e-9) / elapsed_time;
+    printf(
+        "(CuBlas) Avg time: %f ms, performance: %f GFLOP, %f %% \n", 
+        elapsed_time / repeats, 
+        CuBlas_GFLOP, 
+        100 * CuBlas_GFLOP / CuBlas_GFLOP);
 
     // Benchmark GPU implementation 1
-    printf("Benchmarking imp 1\n");
     cudaEventRecord(start);
     for (int i = 0; i < repeats; i++) {
         gemm<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
@@ -91,12 +123,12 @@ int main() {
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&elapsed_time, start, stop);
     printf(
-        "(1) Avg time: %f ms, performance: %f GFLOP\n", 
+        "(1) Avg time: %f ms, performance: %f GFLOP, %f %% \n", 
         elapsed_time / repeats, 
-        (repeats * flops * 1e-9) / elapsed_time);
+        (repeats * flops * 1e-9) / elapsed_time,
+        (100 * (repeats * flops * 1e-9) / elapsed_time) / CuBlas_GFLOP);
 
     // Benchmark implementation 2
-    printf("Benchmarking imp 2\n");
     cudaEventRecord(start);
     for (int i = 0; i < repeats; i++) {
         gemm_gmc<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
@@ -106,12 +138,12 @@ int main() {
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&elapsed_time, start, stop);
     printf(
-        "(2) Avg time: %f ms, performance: %f GFLOP\n", 
+        "(2) Avg time: %f ms, performance: %f GFLOP, %f%% \n", 
         elapsed_time / repeats, 
-        (repeats * flops * 1e-9) / elapsed_time);
+        (repeats * flops * 1e-9) / elapsed_time,
+        (100 * (repeats * flops * 1e-9) / elapsed_time) / CuBlas_GFLOP);
 
     // Benchmark implementation 2
-    printf("Benchmarking imp 3\n");
     cudaEventRecord(start);
     for (int i = 0; i < repeats; i++) {
         gemm_smem<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
@@ -121,12 +153,12 @@ int main() {
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&elapsed_time, start, stop);
     printf(
-        "(3) Avg time: %f ms, performance: %f GFLOP\n", 
+        "(2) Avg time: %f ms, performance: %f GFLOP, %f %% \n", 
         elapsed_time / repeats, 
-        (repeats * flops * 1e-9) / elapsed_time);
+        (repeats * flops * 1e-9) / elapsed_time,
+        (100 * (repeats * flops * 1e-9) / elapsed_time) / CuBlas_GFLOP);
 
     // Benchmark implementation 4
-    printf("Benchmarking imp 4\n");
     cudaEventRecord(start);
     for (int i = 0; i < repeats; i++) {
         gemm_1DBlockTiling<<<gridDim4, blockDim4>>>(d_A, d_B, d_C, N, K, M);
@@ -136,9 +168,26 @@ int main() {
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&elapsed_time, start, stop);
     printf(
-        "(4) Avg time: %f ms, performance: %f GFLOP\n", 
+        "(2) Avg time: %f ms, performance: %f GFLOP, %f %% \n", 
         elapsed_time / repeats, 
-        (repeats * flops * 1e-9) / elapsed_time);
+        (repeats * flops * 1e-9) / elapsed_time,
+        (100 * (repeats * flops * 1e-9) / elapsed_time) / CuBlas_GFLOP);
+
+    // Benchmark implementation 5
+    cudaEventRecord(start);
+    for (int i = 0; i < repeats; i++) {
+        gemm_2DBlockTiling<<<gridDim5, blockDim5>>>(d_A, d_B, d_C, N, K, M);
+    }
+    cudaEventRecord(stop);
+    cudaEventSynchronize(start);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&elapsed_time, start, stop);
+    printf(
+        "(2) Avg time: %f ms, performance: %f GFLOP, %f %% \n", 
+        elapsed_time / repeats, 
+        (repeats * flops * 1e-9) / elapsed_time,
+        (100 * (repeats * flops * 1e-9) / elapsed_time) / CuBlas_GFLOP);
+
 
     // Free memory
     free(h_A);
@@ -147,6 +196,7 @@ int main() {
     free(h_C_gpu);
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
+    cublasDestroy(handle);
     cudaFree(d_A);
     cudaFree(d_B);
     cudaFree(d_C);

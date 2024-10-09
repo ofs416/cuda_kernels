@@ -1,14 +1,16 @@
 # Makefile
 
+CC = gcc
 NVCC = nvcc
-CFLAGS = -o
+CFLAGS = -O3
+NVCCFLAGS = -O3
+LDFLAGS = -lcublas
+
+SOURCES = benchmark.cu gpu_functions.cu cpu_functions.c
 TARGET = benchmark
-SRC = benchmark.cu gpu_functions.cu cpu_functions.c
 
-all: $(TARGET)
-
-$(TARGET): $(SRC)
-	$(NVCC) $(CFLAGS) $(TARGET) $(SRC)
+$(TARGET): $(SOURCES)
+	$(NVCC) $(NVCCFLAGS) -o $@ $^ $(LDFLAGS)
 
 run: $(TARGET)
 	./$(TARGET)

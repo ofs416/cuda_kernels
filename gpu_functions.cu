@@ -119,17 +119,88 @@ __global__ void gemm_1DBlockTiling (float *A, float *B, float *C, int n, int k, 
         A += BK;
         B += BK * n;
 
-        for (uint dotIdx = 0; dotIdx < BK; ++dotIdx) {
-            float tmpB = B_shared[dotIdx * BN + threadCol];
-            for (uint resIdx = 0; resIdx < TM; ++resIdx) {
-                threadResults[resIdx] +=
-                    A_shared[(threadRow * TM + resIdx) * BK + dotIdx] * tmpB;
+        for (uint resIdx = 0; resIdx < TM; ++resIdx) {
+            for (uint dotIdx = 0; dotIdx < BK; ++dotIdx) {
+                threadResults[resIdx] += A_shared[(threadRow * TM + resIdx) * BK + dotIdx] 
+                    * B_shared[dotIdx * BN + threadCol];
             }
         }
         __syncthreads();
     }
-
     for (uint resIdx = 0; resIdx < TM; ++resIdx) {
         C[(threadRow * TM + resIdx) * n + threadCol] = threadResults[resIdx];
+    }
+}
+
+// This still suffers from MIO stall
+// Further mitigated via tiling in 2D, not just 1D
+__global__ void gemm_2DBlockTiling (float *A, float *B, float *C, int n, int k, int m) {
+    const uint BK = 8;
+    const uint TM = 8;
+    const uint TN = 8;
+    const uint BM = 128;
+    const uint BN = 128;
+
+    __shared__ float A_shared[BM * BK];
+    __shared__ float B_shared[BK * BN];
+
+    const uint cRow = blockIdx.y;
+    const uint cCol = blockIdx.x;
+    const uint totalResultsBlocktile = BM * BN;
+    const uint numThreadsBlocktile = totalResultsBlocktile / (TM * TN);
+
+    const int threadCol = threadIdx.x % (BN / TN);
+    const int threadRow = threadIdx.x / (BN / TN);
+
+    const uint innerRowA = threadIdx.x / BK;
+    const uint innerColA = threadIdx.x % BK;
+    const uint strideA = numThreadsBlocktile / BK;
+    const uint innerRowB = threadIdx.x / BN;
+    const uint innerColB = threadIdx.x % BN;
+    const uint strideB = numThreadsBlocktile / BN;
+
+    A += cRow * BM * k;
+    B += cCol * BN;
+    C += cRow * BM * n + cCol * BN;
+
+    float threadResults[TM * TN] = {0.0};
+    float regM[TM] = {0.0};
+    float regN[TN] = {0.0};
+
+    for (uint blkIdx = 0; blkIdx < k; blkIdx += BK) {
+        for (uint loadOffset = 0; loadOffset < BM; loadOffset += strideA) {
+            A_shared[(innerRowA + loadOffset) * BK + innerColA] =
+                A[(innerRowA + loadOffset) * k + innerColA];
+        }
+        for (uint loadOffset = 0; loadOffset < BK; loadOffset += strideB) {
+            B_shared[(innerRowB + loadOffset) * BN + innerColB] =
+                B[(innerRowB + loadOffset) * n + innerColB];
+        }
+        __syncthreads();
+
+        A += BK; 
+        B += BK * n; 
+
+        for (uint dotIdx = 0; dotIdx < BK; ++dotIdx) {
+            for (uint i = 0; i < TM; ++i) {
+                regM[i] = A_shared[(threadRow * TM + i) * BK + dotIdx];
+            }
+            for (uint i = 0; i < TN; ++i) {
+                regN[i] = B_shared[dotIdx * BN + threadCol * TN + i];
+            }
+            for (uint resIdxM = 0; resIdxM < TM; ++resIdxM) {
+                for (uint resIdxN = 0; resIdxN < TN; ++resIdxN) {
+                    threadResults[resIdxM * TN + resIdxN] +=
+                        regM[resIdxM] * regN[resIdxN];
+                }
+            }
+        }
+        __syncthreads();
+    }
+    for (uint resIdxM = 0; resIdxM < TM; ++resIdxM) {
+        for (uint resIdxN = 0; resIdxN < TN; ++resIdxN) {
+            C[(threadRow * TM + resIdxM) * n + threadCol * TN + resIdxN] =
+                threadResults[resIdxM * TN + resIdxN];
+        }
     }
 }
