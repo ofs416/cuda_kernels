@@ -211,9 +211,9 @@ __global__ void gemm_vectorised (float *A, float *B, float *C, int n, int k, int
     const uint TN = 8;
     const uint BM = 128;
     const uint BN = 128;
+
     const uint cRow = blockIdx.y;
     const uint cCol = blockIdx.x;
-
     const int threadCol = threadIdx.x % (BN / TN);
     const int threadRow = threadIdx.x / (BN / TN);
 
@@ -247,7 +247,7 @@ __global__ void gemm_vectorised (float *A, float *B, float *C, int n, int k, int
         __syncthreads();
 
         A += BK;  
-        B += BK * N; 
+        B += BK * n; 
 
         for (uint dotIdx = 0; dotIdx < BK; ++dotIdx) {
             for (uint i = 0; i < TM; ++i) {
