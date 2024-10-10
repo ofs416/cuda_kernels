@@ -15,11 +15,14 @@ In this repository, I will brush up on C, dive deeper into low-level programming
   - Optimizing code (e.g., row-major vs column-major matrices)
 - **Learn CUDA C**:
   - Implement my own matrix multiplication kernel with different levels of optimization (e.g., tiling)
-- **Create a perceptron using CuBLAS**:
-  - Leverage its ability to merge kernels
+- ~~**Create a perceptron using CuBLAS**:~~
+  - ~~Leverage its ability to merge kernels~~
+- **Create a CNN kernel and use it for classification with MNIST**:
+  - Train the model with pytorch
+  - Deploy using the CNN kernel deployed to python
 - **Develop kernels accessible with PyTorch**
 - **Explore higher-level CUDA abstractions**:
   - Triton (used by PyTorch)
   - Taichi (a DSL with python frontend)
-- **Brush up on 2nd-year Fluid Mechanics**:
+- **Brush up on 3rd-year Fluid Mechanics**:
   - Simulate air tunnel flow over a 2D airfoil with Taichi
