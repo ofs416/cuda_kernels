@@ -87,11 +87,8 @@ __global__ void gemm_smem(float *A, float *B, float *C, int n, int k, int m) {
 // suffers from MIO stalls as it waits for SMEM accesses to return
 // This can be mitigated by using 1D blocktiling to calc multiple results per thread
 // Now each thread is responsible for computing a column of the block in C
-__global__ void gemm_1DBlockTiling (float *A, float *B, float *C, int n, int k, int m) {
-    const int BM = 64;
-    const int BN = 64;
-    const int BK = 8;
-    const int TM = 8;
+template <const uint BM, const uint BN, const uint BK, const uint TM>
+__global__ void gemm_1DBlockTiling (float *A, float *B, float *C, uint n, uint k, uint m) {
 
     __shared__ float A_shared[BM * BK];
     __shared__ float B_shared[BK * BN];
@@ -134,12 +131,8 @@ __global__ void gemm_1DBlockTiling (float *A, float *B, float *C, int n, int k, 
 
 // This still suffers from MIO stall
 // Further mitigated via tiling in 2D, not just 1D
+template <const uint BM, const uint BN, const uint BK, const uint TM, const uint TN>
 __global__ void gemm_2DBlockTiling (float *A, float *B, float *C, int n, int k, int m) {
-    const uint BK = 8;
-    const uint TM = 8;
-    const uint TN = 8;
-    const uint BM = 128;
-    const uint BN = 128;
 
     __shared__ float A_shared[BM * BK];
     __shared__ float B_shared[BK * BN];
@@ -205,12 +198,8 @@ __global__ void gemm_2DBlockTiling (float *A, float *B, float *C, int n, int k, 
     }
 }
 
+template <const uint BM, const uint BN, const uint BK, const uint TM, const uint TN>
 __global__ void gemm_vectorised (float *A, float *B, float *C, int n, int k, int m) {
-    const uint BK = 8;
-    const uint TM = 8;
-    const uint TN = 8;
-    const uint BM = 128;
-    const uint BN = 128;
 
     const uint cRow = blockIdx.y;
     const uint cCol = blockIdx.x;

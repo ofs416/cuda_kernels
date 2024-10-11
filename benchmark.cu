@@ -10,9 +10,9 @@ extern "C" {
 }
 #include "gpu_functions.cuh"
 
-#define N 8192  
-#define K 8192  
-#define M 8192  
+#define N 4096  
+#define K 4096  
+#define M 4096  
 #define BLOCK_SIZE 32
 
 int main() {
@@ -74,15 +74,15 @@ int main() {
         cudaDeviceSynchronize();
         gemm_smem<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
         cudaDeviceSynchronize();
-        gemm_1DBlockTiling<<<gridDim4, blockDim4>>>(d_A, d_B, d_C, N, K, M);
+        gemm_1DBlockTiling<64, 64, 8, 8><<<gridDim4, blockDim4>>>(d_A, d_B, d_C, N, K, M);
         cudaDeviceSynchronize();
-        gemm_2DBlockTiling<<<gridDim5, blockDim5>>>(d_A, d_B, d_C, N, K, M);
+        gemm_2DBlockTiling<128, 128, 8, 8, 8><<<gridDim5, blockDim5>>>(d_A, d_B, d_C, N, K, M);
         cudaDeviceSynchronize();
         cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, d_B, CUDA_R_32F,
                N, d_A, CUDA_R_32F, K, &beta, d_C, CUDA_R_32F, N, CUBLAS_COMPUTE_32F,
                CUBLAS_GEMM_DEFAULT_TENSOR_OP);
         cudaDeviceSynchronize();
-        gemm_vectorised<<<gridDim5, blockDim5>>>(d_A, d_B, d_C, N, K, M);
+        gemm_vectorised<128, 128, 8, 8, 8><<<gridDim5, blockDim5>>>(d_A, d_B, d_C, N, K, M);
         cudaDeviceSynchronize();
     }
 
@@ -163,7 +163,7 @@ int main() {
     // Benchmark implementation 4
     cudaEventRecord(start);
     for (int i = 0; i < repeats; i++) {
-        gemm_1DBlockTiling<<<gridDim4, blockDim4>>>(d_A, d_B, d_C, N, K, M);
+        gemm_1DBlockTiling<64, 64, 8, 8><<<gridDim4, blockDim4>>>(d_A, d_B, d_C, N, K, M);
     }
     cudaEventRecord(stop);
     cudaEventSynchronize(start);
@@ -178,7 +178,7 @@ int main() {
     // Benchmark implementation 5
     cudaEventRecord(start);
     for (int i = 0; i < repeats; i++) {
-        gemm_2DBlockTiling<<<gridDim5, blockDim5>>>(d_A, d_B, d_C, N, K, M);
+        gemm_2DBlockTiling<128, 128, 8, 8, 8><<<gridDim5, blockDim5>>>(d_A, d_B, d_C, N, K, M);
     }
     cudaEventRecord(stop);
     cudaEventSynchronize(start);
@@ -193,7 +193,7 @@ int main() {
     // Benchmark implementation 6
     cudaEventRecord(start);
     for (int i = 0; i < repeats; i++) {
-        gemm_vectorised<<<gridDim5, blockDim5>>>(d_A, d_B, d_C, N, K, M);
+        gemm_vectorised<128, 128, 8, 8, 8><<<gridDim5, blockDim5>>>(d_A, d_B, d_C, N, K, M);
     }
     cudaEventRecord(stop);
     cudaEventSynchronize(start);
