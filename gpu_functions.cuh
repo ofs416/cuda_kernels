@@ -8,5 +8,6 @@ __global__ void gemm_smem (float *A, float *B, float *C, int n, int k, int m);
 __global__ void gemm_1DBlockTiling (float *A, float *B, float *C, int n, int k, int m);
 __global__ void gemm_2DBlockTiling (float *A, float *B, float *C, int n, int k, int m);
 __global__ void gemm_vectorised (float *A, float *B, float *C, int n, int k, int m);
+__global__ void gemm_warptiling (float *A, float *B, float *C, int n, int k, int m);
 
 #endif // GPU_FUNCTIONS_H_

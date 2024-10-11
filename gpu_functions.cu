@@ -268,3 +268,88 @@ __global__ void gemm_vectorised (float *A, float *B, float *C, int n, int k, int
         }
     }
 }
+
+template <const uint BM, const uint BN, const uint BK, const uint TM, const uint TN>
+__global__ void gemm_warptiling (float *A, float *B, float *C, int n, int k, int m) {
+
+    const uint cRow = blockIdx.y;
+    const uint cCol = blockIdx.x;
+    const int threadCol = threadIdx.x % (BN / TN);
+    const int threadRow = threadIdx.x / (BN / TN);
+
+    __shared__ float A_shared[BM * BK];
+    __shared__ float B_shared[BK * BN];
+
+    A += cRow * BM * k;
+    B += cCol * BN;
+    C += cRow * BM * n + cCol * BN;
+
+    // Load 128bit / 32bit = 4 elements per thread at each step
+    const uint innerRowA = threadIdx.x / (BK / 4);
+    const uint innerColA = threadIdx.x % (BK / 4);
+    const uint innerRowB = threadIdx.x / (BN / 4);
+    const uint innerColB = threadIdx.x % (BN / 4);
+
+    float threadResults[TM * TN] = {0.0};
+    float regM[TM] = {0.0};
+    float regN[TN] = {0.0};
+
+    for (uint blkIdx = 0; blkIdx < k; blkIdx += BK) {
+        float4 tmp =
+        reinterpret_cast<float4 *>(&A[innerRowA * k + innerColA * 4])[0];
+        A_shared[(innerColA * 4 + 0) * BM + innerRowA] = tmp.x;
+        A_shared[(innerColA * 4 + 1) * BM + innerRowA] = tmp.y;
+        A_shared[(innerColA * 4 + 2) * BM + innerRowA] = tmp.z;
+        A_shared[(innerColA * 4 + 3) * BM + innerRowA] = tmp.w;
+
+        reinterpret_cast<float4 *>(&B_shared[innerRowB * BN + innerColB * 4])[0] =
+        reinterpret_cast<float4 *>(&B[innerRowB * n + innerColB * 4])[0];
+        __syncthreads();
+
+        A += BK;  
+        B += BK * n; 
+
+        for (uint dotIdx = 0; dotIdx < BK; ++dotIdx) {
+        for (uint wSubRowIdx = 0; wSubRowIdx < WMITER; ++wSubRowIdx) {
+            for (uint i = 0; i < TM; ++i) {
+            regM[wSubRowIdx * TM + i] =
+                A_shared[(dotIdx * BM) + warpRow * WM + wSubRowIdx * WSUBM +
+                    threadRowInWarp * TM + i];
+            }
+        }
+        for (uint wSubColIdx = 0; wSubColIdx < WNITER; ++wSubColIdx) {
+            for (uint i = 0; i < TN; ++i) {
+            regN[wSubColIdx * TN + i] =
+                B_shared[(dotIdx * BN) + warpCol * WN + wSubColIdx * WSUBN +
+                    threadColInWarp * TN + i];
+            }
+        }
+        for (uint wSubRowIdx = 0; wSubRowIdx < WMITER; ++wSubRowIdx) {
+            for (uint wSubColIdx = 0; wSubColIdx < WNITER; ++wSubColIdx) {
+            for (uint resIdxM = 0; resIdxM < TM; ++resIdxM) {
+                for (uint resIdxN = 0; resIdxN < TN; ++resIdxN) {
+                threadResults[(wSubRowIdx * TM + resIdxM) * (WNITER * TN) +
+                                (wSubColIdx * TN) + resIdxN] +=
+                    regM[wSubRowIdx * TM + resIdxM] *
+                    regN[wSubColIdx * TN + resIdxN];
+                }
+            }
+            }
+        }
+        }
+        __syncthreads();
+    }
+    for (uint resIdxM = 0; resIdxM < TM; resIdxM += 1) {
+        for (uint resIdxN = 0; resIdxN < TN; resIdxN += 4) {
+            float4 tmp = reinterpret_cast<float4 *>(
+            &C[(threadRow * TM + resIdxM) * n + threadCol * TN + resIdxN])[0];
+            tmp.x = threadResults[resIdxM * TN + resIdxN];
+            tmp.y = threadResults[resIdxM * TN + resIdxN + 1];
+            tmp.z = threadResults[resIdxM * TN + resIdxN + 2];
+            tmp.w = threadResults[resIdxM * TN + resIdxN + 3];
+            reinterpret_cast<float4 *>(
+            &C[(threadRow * TM + resIdxM) * n + threadCol * TN + resIdxN])[0] =
+            tmp;
+        }
+    }
+}
