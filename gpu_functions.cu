@@ -13,7 +13,7 @@ __global__ void matrixAdditionGPU (float *A, float *B, float *C, int n) {
     }
 }
 
-// Naive CUDA kernel for matrix multiplication (N x K) @ (K x M)
+// Naive CUDA kernel for matrix multiplication (M x K) @ (K x N)
 __global__ void gemm (float *A, float *B, float *C, int n, int k, int m) {
     const uint row = blockIdx.x * blockDim.x + threadIdx.x;
     const uint col = blockIdx.y * blockDim.y + threadIdx.y;
@@ -27,7 +27,7 @@ __global__ void gemm (float *A, float *B, float *C, int n, int k, int m) {
     }
 }
 
-// Global Memory Coalescing CUDA kernel for matrix multiplication (N x K) @ (K x M)
+// Global Memory Coalescing CUDA kernel for matrix multiplication (M x K) @ (K x N)
 // Increases performance by grouping memory accesses of threads that are in the same warp
 // and executed as one
 // Each warp contains 32 threads and memory accesses can be 32B, 64B and 128B
@@ -46,7 +46,7 @@ __global__ void gemm_gmc (float *A, float *B, float *C, int n, int k, int m) {
     }
 }
 
-// Shared Memory CUDA kernel for matrix multiplication (N x K) @ (K x M)
+// Shared Memory CUDA kernel for matrix multiplication (M x K) @ (K x N)
 // Shared memory is has a size of O(KB) and bandwidth of >10,000GB/s
 // Global memory has a bandwidth of <1,000GB/s 
 // Each thread block is responsible for computing a sub-matrix of C
