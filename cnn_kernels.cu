@@ -1,7 +1,7 @@
 // Implementation of CNN kernel following based on the optimisations seen in gpu_functions.cu
 
 #include <cuda_runtime.h>
-#include "gpu_functions.cuh"
+#include "cnn_kenrels.cuh"
 
 #define BLOCK_SIZE 32
 
@@ -15,9 +15,9 @@ __global__ void cnn (float *A, float *B, float *C, int n, int k, int m) {
 
     if (row < m && col < n) {
         float sum = 0.0f;
-        for (int i = floor(k /2); j <floor(k /2); i++) {
-            for (int j =floor(k /2) ; j < floor(k /2); j++) {
-                 sum += A[k * i + j] * B[n * (row + i) + col + j]
+        for (int i = -floor(k /2); j < floor(k /2); i++) {
+            for (int j = -floor(k /2) ; j < floor(k /2); j++) {
+                 sum += A[k * i + j] * B[n * (row + i) + col + j];
             }
         }
         C[n * row + col] = sum;
