@@ -10,9 +10,9 @@ extern "C" {
 }
 #include "cnn_kernels.cuh"
 
-#define N 1024  
+#define N 1028  
 #define K 5  
-#define M 1024  
+#define M 1028 
 #define BLOCK_SIZE 32
 
 int main() {
@@ -28,7 +28,7 @@ int main() {
 
     // Initialize matrices
     initMatrix(h_A, M, K);
-    initMatrix(h_B, K, N);
+    initMatrix(h_B, K, K);
 
     // Allocate device memory
     cudaMalloc(&d_A, size_A);
