@@ -7,7 +7,7 @@
 
 // Naive CUDA kernel for convolution 
 // Window (matrix B) size of k (heed attention to context of the work kernel)
-// Input matrix B with size m X n
+// Input matrix A with size m X n
 // Output size of m + 1 - k x n + 1 - k
 __global__ void conv_naive (float *A, float *B, float *C, uint n, uint k, uint m) {
     const uint row = blockIdx.x * blockDim.x + threadIdx.x;
@@ -17,7 +17,9 @@ __global__ void conv_naive (float *A, float *B, float *C, uint n, uint k, uint m
         float sum = 0.0f;
         for (int i = 0 ; i < k ; i++) {
             for (int j = 0 ; j < k ; j++) {
-                 sum += A[n * (row + i - (int)(k / 2)) + col + j - (int)(k / 2)] * B[k * i + j];
+                sum += 
+                    A[(int)(k / 2) * (n + 1 + row) + (j - (int)(k / 2)) + n * (i - (int)(k / 2))]
+                    * B[k * i + j];
             }
         }
         C[(n + 1 - k) * row + col] = sum;
