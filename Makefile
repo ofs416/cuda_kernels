@@ -1,5 +1,3 @@
-# Makefile
-
 CC = gcc
 NVCC = nvcc
 CFLAGS = -O3
@@ -12,10 +10,16 @@ TARGET = benchmark
 $(TARGET): $(SOURCES)
 	$(NVCC) $(NVCCFLAGS) -o $@ $^ $(LDFLAGS)
 
-run: $(TARGET)
+cnn_tests: cnn_tests.cu
+	$(NVCC) $(NVCCFLAGS) -o cnn_tests cnn_tests.cu cnn_kernels.cu cpu_functions.c $(LDFLAGS)
+
+run_gemm: $(TARGET)
 	./$(TARGET)
 
-clean:
-	rm -f $(TARGET)
+run_cnn: cnn_tests
+	./cnn_tests
 
-.PHONY: all run clean
+clean:
+	rm -f $(TARGET) cnn_tests
+
+.PHONY: all run run_cnn_tests clean
