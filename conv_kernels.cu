@@ -45,8 +45,14 @@ __global__ void conv_gmc (float *A, float *B, float *C, uint n, uint k, uint m) 
 }
 
 // Constant memory
+
+// Forward declaration of the constant memory array
+
+__constant__ float window_cm[5 * 5];
+
+// Templated kernel function
+
 __global__ void conv_cm(float *A, float *C, uint n, uint k, uint m) {
-    
     const uint threadCol = threadIdx.x % BLOCK_SIZE;
     const uint threadRow = threadIdx.x / BLOCK_SIZE;
     const uint row = blockIdx.x * BLOCK_SIZE + (threadRow);
@@ -54,8 +60,8 @@ __global__ void conv_cm(float *A, float *C, uint n, uint k, uint m) {
 
     if (row < (m + 1 - k) && col < (n + 1 - k)) {
         float sum = 0.0f;
-        for (int i = 0 ; i < k ; i++) {
-            for (int j = 0 ; j < k ; j++) {
+        for (int i = 0; i < k; i++) {
+            for (int j = 0; j < k; j++) {
                 sum += 
                     A[(int)(k / 2) * (n + 1 + row) + (j - (int)(k / 2)) + n * (i - (int)(k / 2))]
                     * window_cm[k * i + j];

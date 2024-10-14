@@ -15,7 +15,7 @@ extern "C" {
 #define M 8096 
 #define BLOCK_SIZE 32
 
-__constant__ float window_cm[K*K];
+extern __constant__ float window_cm[K*K];
 
 int main() {
     int size_A = M * N * sizeof(float);
