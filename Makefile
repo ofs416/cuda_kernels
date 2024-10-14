@@ -10,16 +10,16 @@ TARGET = benchmark
 $(TARGET): $(SOURCES)
 	$(NVCC) $(NVCCFLAGS) -o $@ $^ $(LDFLAGS)
 
-cnn_tests: cnn_tests.cu
-	$(NVCC) $(NVCCFLAGS) -o cnn_tests cnn_tests.cu cnn_kernels.cu cpu_functions.c $(LDFLAGS)
+conv_tests: conv_tests.cu
+	$(NVCC) $(NVCCFLAGS) -o conv_tests conv_tests.cu conv_kernels.cu cpu_functions.c $(LDFLAGS)
 
 run_gemm: $(TARGET)
 	./$(TARGET)
 
-run_cnn: cnn_tests
-	./cnn_tests
+run_conv: conv_tests
+	./conv_tests
 
 clean:
-	rm -f $(TARGET) cnn_tests
+	rm -f $(TARGET) conv_tests
 
-.PHONY: all run run_cnn_tests clean
+.PHONY: all run run_conv_tests clean

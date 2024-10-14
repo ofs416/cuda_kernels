@@ -1,7 +1,7 @@
 // Implementation of CNN kernel following based on the optimisations seen in gpu_functions.cu
 
 #include <cuda_runtime.h>
-#include "cONV_kernels.cuh"
+#include "conv_kernels.cuh"
 
 #define BLOCK_SIZE 32
 
@@ -44,41 +44,28 @@ __global__ void conv_gmc (float *A, float *B, float *C, uint n, uint k, uint m) 
     }
 }
 
+// Shared memory
+__global__ void conv_smem(float *A, float *B, float *C, uint n, uint k, uint m) {
+    __shared__ float B_shared[5 * 5];
 
-// Shared Memory 
-__global__ void gemm_smem(float *A, float *B, float *C, int n, int k, int m) {
-    __shared__ float A_shared[BLOCK_SIZE * BLOCK_SIZE];
-    __shared__ float B_shared[k * k];
-
-    const uint cRow = blockIdx.x;
-    const uint cCol = blockIdx.y;
     const uint threadCol = threadIdx.x % BLOCK_SIZE;
     const uint threadRow = threadIdx.x / BLOCK_SIZE;
+    const uint row = blockIdx.x * BLOCK_SIZE + (threadRow);
+    const uint col = blockIdx.y * BLOCK_SIZE + (threadCol);
 
-    A += cRow * BLOCK_SIZE * k;                                   
-    C += cRow * BLOCK_SIZE * n + cCol * BLOCK_SIZE; 
-
-    for (int i = 0 ; i < k ; i++) {
-        for (int j = 0 ; j < k ; j++) {
-            B_shared[k * i + j] = B[k * i + j];
-        }
+    // Load convolution kernel into shared memory
+    if (threadRow < k && threadCol < k) {
+        B_shared[threadRow * k + threadCol] = B[threadRow * k + threadCol];
     }
+    __syncthreads();
 
-    float sum = 0.0f;
-    for (int blkIdx = 0; blkIdx < k; blkIdx += BLOCK_SIZE) {
-        A_shared[threadRow * BLOCK_SIZE + threadCol] = A[threadRow * k + threadCol];
-    
-        __syncthreads();
-        A += BLOCK_SIZE;
-
-        for (int i = 0 ; i < k ; i++) {
-            for (int j = 0 ; j < k ; j++) {
-                sum += 
-                    A[(int)(k / 2) * (n + 1 + row) + (j - (int)(k / 2)) + n * (i - (int)(k / 2))]
-                    * B[k * i + j];
+    if (row < (m + 1 - k) && col < (n + 1 - k)) {
+        float sum = 0.0f;
+        for (int i = 0; i < k; i++) {
+            for (int j = 0; j < k; j++) {
+                sum += A[(row + i) * n + (col + j)] * B_shared[i * k + j];
             }
         }
-        __syncthreads();
+        C[row * (n + 1 - k) + col] = sum;
     }
-    C[threadRow * n + threadCol] = tmp;
 }
