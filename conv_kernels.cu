@@ -44,28 +44,23 @@ __global__ void conv_gmc (float *A, float *B, float *C, uint n, uint k, uint m) 
     }
 }
 
-// Shared memory
-__global__ void conv_smem(float *A, float *B, float *C, uint n, uint k, uint m) {
-    __shared__ float B_shared[5 * 5];
-
+// Constant memory
+__global__ void conv_cm(float *A, float *C, uint n, uint k, uint m) {
+    
     const uint threadCol = threadIdx.x % BLOCK_SIZE;
     const uint threadRow = threadIdx.x / BLOCK_SIZE;
     const uint row = blockIdx.x * BLOCK_SIZE + (threadRow);
     const uint col = blockIdx.y * BLOCK_SIZE + (threadCol);
 
-    // Load convolution kernel into shared memory
-    if (threadRow < k && threadCol < k) {
-        B_shared[threadRow * k + threadCol] = B[threadRow * k + threadCol];
-    }
-    __syncthreads();
-
     if (row < (m + 1 - k) && col < (n + 1 - k)) {
         float sum = 0.0f;
-        for (int i = 0; i < k; i++) {
-            for (int j = 0; j < k; j++) {
-                sum += A[(row + i) * n + (col + j)] * B_shared[i * k + j];
+        for (int i = 0 ; i < k ; i++) {
+            for (int j = 0 ; j < k ; j++) {
+                sum += 
+                    A[(int)(k / 2) * (n + 1 + row) + (j - (int)(k / 2)) + n * (i - (int)(k / 2))]
+                    * window[k * i + j];
             }
         }
-        C[row * (n + 1 - k) + col] = sum;
+        C[(n + 1 - k) * row + col] = sum;
     }
 }

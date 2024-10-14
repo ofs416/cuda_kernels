@@ -15,6 +15,8 @@ extern "C" {
 #define M 8096 
 #define BLOCK_SIZE 32
 
+__constant__ float window_cm[K*K];
+
 int main() {
     float *h_A, *h_B;
     float *d_A, *d_B, *d_C;
@@ -23,12 +25,14 @@ int main() {
     int size_C = (M + 1 - K) * (N + 1 - K) * sizeof(float);
 
     // Allocate host memory (for cpu benchmarks)
-    h_A = (float*)malloc(size_A);
-    h_B = (float*)malloc(size_B);
+    float *h_A = (float*)malloc(inputSize);
+    float *h_C = (float*)malloc(outputSize);
+    float h_window[K * K];
 
     // Initialize matrices
     initMatrix(h_A, M, K);
     initMatrix(h_B, K, K);
+    initMatrix(h_window, K, K);
 
     // Allocate device memory
     cudaMalloc(&d_A, size_A);
@@ -38,6 +42,7 @@ int main() {
     // Copy data to device
     cudaMemcpy(d_A, h_A, size_A, cudaMemcpyHostToDevice);
     cudaMemcpy(d_B, h_B, size_B, cudaMemcpyHostToDevice);
+    cudaMemcpyToSymbol(window_cm, h_window, size_B);
 
     cublasHandle_t handle;
     cublasCreate(&handle);
@@ -63,7 +68,7 @@ int main() {
         cudaDeviceSynchronize();
         conv_gmc<<<gridDim, blockDim1D>>>(d_A, d_B, d_C, N, K, M);
         cudaDeviceSynchronize();
-        conv_smem<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
+        conv_cm<<<gridDim, blockDim>>>(d_A, d_C, N, K, M);
         cudaDeviceSynchronize();
     }
 
@@ -100,14 +105,14 @@ int main() {
     // Implementation 3
     cudaEventRecord(start);
     for (int i = 0; i < repeats; i++) {
-        conv_smem<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
+        conv_cm<<<gridDim, blockDim>>>(d_A, d_C, N, K, M);
     }
     cudaEventRecord(stop);
     cudaEventSynchronize(start);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&elapsed_time, start, stop);
     printf(
-        "(smem) Avg time: %f ms, performance: %f GFLOP\n", 
+        "(cm) Avg time: %f ms, performance: %f GFLOP\n", 
         elapsed_time / repeats, 
         (repeats * flops * 1e-9) / elapsed_time
     );
