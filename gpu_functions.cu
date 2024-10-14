@@ -31,7 +31,7 @@ __global__ void gemm (float *A, float *B, float *C, int n, int k, int m) {
 // Increases performance by grouping memory accesses of threads that are in the same warp
 // and executed as one
 // Each warp contains 32 threads and memory accesses can be 32B, 64B and 128B
-// To take advantage of 128B single access, the floats should be conseecutive in memory
+// To take advantage of 128B single access, the floats should be consecutive in memory
 // and aligned in access (but the accesses don’t have to be consecutive within-warp)
 __global__ void gemm_gmc (float *A, float *B, float *C, int n, int k, int m) {
     const uint row = blockIdx.x * BLOCK_SIZE + (threadIdx.x / BLOCK_SIZE);
