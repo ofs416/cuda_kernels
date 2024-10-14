@@ -58,7 +58,7 @@ __global__ void conv_cm(float *A, float *C, uint n, uint k, uint m) {
             for (int j = 0 ; j < k ; j++) {
                 sum += 
                     A[(int)(k / 2) * (n + 1 + row) + (j - (int)(k / 2)) + n * (i - (int)(k / 2))]
-                    * window[k * i + j];
+                    * window_cm[k * i + j];
             }
         }
         C[(n + 1 - k) * row + col] = sum;

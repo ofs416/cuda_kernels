@@ -18,15 +18,14 @@ extern "C" {
 __constant__ float window_cm[K*K];
 
 int main() {
-    float *h_A, *h_B;
-    float *d_A, *d_B, *d_C;
     int size_A = M * N * sizeof(float);
     int size_B = K * K * sizeof(float);
     int size_C = (M + 1 - K) * (N + 1 - K) * sizeof(float);
 
     // Allocate host memory (for cpu benchmarks)
-    float *h_A = (float*)malloc(inputSize);
-    float *h_C = (float*)malloc(outputSize);
+    float *h_A = (float*)malloc(size_A);
+    float *h_B = (float*)malloc(size_B);
+    float *h_C = (float*)malloc(size_C);
     float h_window[K * K];
 
     // Initialize matrices
@@ -35,6 +34,7 @@ int main() {
     initMatrix(h_window, K, K);
 
     // Allocate device memory
+    float *d_A, *d_B, *d_C;
     cudaMalloc(&d_A, size_A);
     cudaMalloc(&d_B, size_B);
     cudaMalloc(&d_C, size_C);
@@ -59,8 +59,7 @@ int main() {
     dim3 blockDim(BLOCK_SIZE, BLOCK_SIZE);
     dim3 gridDim((N - K + BLOCK_SIZE) / BLOCK_SIZE, (M - K + BLOCK_SIZE) / BLOCK_SIZE);
     dim3 blockDim1D(BLOCK_SIZE * BLOCK_SIZE);
-    size_t sharedMemSize = (BLOCK_SIZE * (BLOCK_SIZE + K - 1) + K * K) * sizeof(float);
-
+    
     // Warm-up runs
     printf("Performing warm-up runs...\n");
     for (int i = 0; i < 5; i++) {
