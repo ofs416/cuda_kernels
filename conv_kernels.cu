@@ -1,7 +1,7 @@
 // Implementation of CNN kernel following based on the optimisations seen in gpu_functions.cu
 
 #include <cuda_runtime.h>
-#include "cnn_kernels.cuh"
+#include "cONV_kernels.cuh"
 
 #define BLOCK_SIZE 32
 

@@ -8,7 +8,7 @@
 extern "C" { 
 #include "cpu_functions.h"
 }
-#include "cnn_kernels.cuh"
+#include "conv_kernels.cuh"
 
 #define N 1024  
 #define K 5  
