@@ -5,6 +5,7 @@
 #include <cublas_v2.h>
 #include <iostream>
 
+
 extern "C" { 
 #include "cpu_functions.h"
 }
@@ -15,7 +16,7 @@ extern "C" {
 #define M 8096 
 #define BLOCK_SIZE 32
 
-extern __constant__ float window_cm[K*K];
+__constant__ float window_cm[K*K];
 
 int main() {
     int size_A = M * N * sizeof(float);
@@ -26,7 +27,7 @@ int main() {
     float *h_A = (float*)malloc(size_A);
     float *h_B = (float*)malloc(size_B);
     float *h_C = (float*)malloc(size_C);
-    float h_window[K * K];
+    float *h_window = (float*)malloc(size_B);
 
     // Initialize matrices
     initMatrix(h_A, M, K);
@@ -120,4 +121,19 @@ int main() {
     if (err != cudaSuccess) {
         printf("CUDA Error: %s\n", cudaGetErrorString(err));
     }
+
+
+    // Free memory
+    free(h_A);
+    free(h_B);
+    free(h_window);
+    cudaEventDestroy(start);
+    cudaEventDestroy(stop);
+    cublasDestroy(handle);
+    cudaFree(d_A);
+    cudaFree(d_B);
+    cudaFree(d_C);
+    cudaFree(window_cm);
 }
+
+

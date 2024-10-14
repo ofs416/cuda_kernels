@@ -45,13 +45,7 @@ __global__ void conv_gmc (float *A, float *B, float *C, uint n, uint k, uint m) 
 }
 
 // Constant memory
-
-// Forward declaration of the constant memory array
-
-__constant__ float window_cm[5 * 5];
-
-// Templated kernel function
-
+__constant__ float window_cm[BLOCK_SIZE * BLOCK_SIZE];
 __global__ void conv_cm(float *A, float *C, uint n, uint k, uint m) {
     const uint threadCol = threadIdx.x % BLOCK_SIZE;
     const uint threadRow = threadIdx.x / BLOCK_SIZE;

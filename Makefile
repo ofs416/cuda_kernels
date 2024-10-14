@@ -1,7 +1,7 @@
 CC = gcc
 NVCC = nvcc
 CFLAGS = -O3
-NVCCFLAGS = -O3
+NVCCFLAGS = -O3 -std=c++14
 LDFLAGS = -lcublas
 
 SOURCES = benchmark.cu gpu_functions.cu cpu_functions.c
