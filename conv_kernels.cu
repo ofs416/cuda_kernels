@@ -25,3 +25,22 @@ __global__ void conv_naive (float *A, float *B, float *C, uint n, uint k, uint m
         C[(n + 1 - k) * row + col] = sum;
     }
 }
+
+__global__ void conv_gmc (float *A, float *B, float *C, uint n, uint k, uint m) {
+    const uint row = blockIdx.x * BLOCK_SIZE + (threadIdx.x / BLOCK_SIZE);
+    const uint col = blockIdx.y * BLOCK_SIZE + (threadIdx.x % BLOCK_SIZE);
+
+    if (row < (m + 1 - k) && col < (n + 1 - k)) {
+        float sum = 0.0f;
+        for (int i = 0 ; i < k ; i++) {
+            for (int j = 0 ; j < k ; j++) {
+                sum += 
+                    A[(int)(k / 2) * (n + 1 + row) + (j - (int)(k / 2)) + n * (i - (int)(k / 2))]
+                    * B[k * i + j];
+            }
+        }
+        C[(n + 1 - k) * row + col] = sum;
+    }
+}
+
+

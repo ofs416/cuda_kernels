@@ -52,12 +52,15 @@ int main() {
 
     // Define grid and block dimensions
     dim3 blockDim(BLOCK_SIZE, BLOCK_SIZE);
-    dim3 gridDim((M - K) / BLOCK_SIZE, (M - K) / BLOCK_SIZE);
+    dim3 gridDim((N + BLOCK_SIZE - 1) / BLOCK_SIZE, (M + BLOCK_SIZE - 1) / BLOCK_SIZE);
+    dim3 blockDim1D(BLOCK_SIZE * BLOCK_SIZE);
 
     // Warm-up runs
     printf("Performing warm-up runs...\n");
     for (int i = 0; i < 5; i++) {
         conv_naive<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
+        cudaDeviceSynchronize();
+        conv_gmc<<<gridDim, blockDim1D>>>(d_A, d_B, d_C, N, K, M);
         cudaDeviceSynchronize();
     }
 
@@ -71,7 +74,22 @@ int main() {
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&elapsed_time, start, stop);
     printf(
-        "(1) Avg time: %f ms, performance: %f GFLOP\n", 
+        "(naive) Avg time: %f ms, performance: %f GFLOP\n", 
+        elapsed_time / repeats, 
+        (repeats * flops * 1e-9) / elapsed_time
+    );
+
+    // Implementation 2
+    cudaEventRecord(start);
+    for (int i = 0; i < repeats; i++) {
+        conv_gmc<<<gridDim, blockDim1D>>>(d_A, d_B, d_C, N, K, M);
+    }
+    cudaEventRecord(stop);
+    cudaEventSynchronize(start);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&elapsed_time, start, stop);
+    printf(
+        "(gmc) Avg time: %f ms, performance: %f GFLOP\n", 
         elapsed_time / repeats, 
         (repeats * flops * 1e-9) / elapsed_time
     );
