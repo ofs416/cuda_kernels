@@ -1,3 +1,6 @@
+# Makefile
+
+# Compilers
 CC = gcc
 NVCC = nvcc
 CFLAGS = -O3
@@ -19,7 +22,10 @@ run_gemm: $(TARGET)
 run_conv: conv_tests
 	./conv_tests
 
+run: 
+	$(NVCC) $(NVCCFLAGS) -o $(file).o $(file).cu cpu_functions.c $(LDFLAGS) && ./$(file).o
+
 clean:
-	rm -f $(TARGET) conv_tests
+	rm -f $(TARGET) *.out *.o
 
 .PHONY: all run run_conv_tests clean
