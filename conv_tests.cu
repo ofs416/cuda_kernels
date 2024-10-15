@@ -11,10 +11,10 @@ extern "C" {
 }
 #include "conv_kernels.cuh"
 
-#define N 8096  
+#define N 2048  
 #define K 5  
-#define M 8096 
-#define BLOCK_SIZE 32
+#define M 2048 
+#define BLOCK_SIZE 16
 
 __constant__ float window_cm[K*K];
 
@@ -53,7 +53,7 @@ int main() {
     cudaEventCreate(&stop);
 
     float elapsed_time;
-    float repeats = 50.0f;
+    float repeats = 100.0f;
     long long flops = 2LL * (M + 1 - K) * (N + 1 - K) * K * K;
 
     // Define grid and block dimensions
@@ -69,6 +69,8 @@ int main() {
         conv_gmc<<<gridDim, blockDim1D>>>(d_A, d_B, d_C, N, K, M);
         cudaDeviceSynchronize();
         conv_cm<<<gridDim, blockDim>>>(d_A, d_C, N, K, M);
+        cudaDeviceSynchronize();
+        conv_shared<<<gridDim, blockDim>>>(d_A, d_C, N, K, M);
         cudaDeviceSynchronize();
     }
 
@@ -116,6 +118,22 @@ int main() {
         elapsed_time / repeats, 
         (repeats * flops * 1e-9) / elapsed_time
     );
+
+    // Implementation 4
+    cudaEventRecord(start);
+    for (int i = 0; i < repeats; i++) {
+        conv_cm<<<gridDim, blockDim>>>(d_A, d_C, N, K, M);
+    }
+    cudaEventRecord(stop);
+    cudaEventSynchronize(start);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&elapsed_time, start, stop);
+    printf(
+        "(shared) Avg time: %f ms, performance: %f GFLOP\n", 
+        elapsed_time / repeats, 
+        (repeats * flops * 1e-9) / elapsed_time
+    );
+    
     
     cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {
