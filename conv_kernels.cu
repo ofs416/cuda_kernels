@@ -69,7 +69,6 @@ __global__ void conv_cm(float *A, float *C, uint n, uint k, uint m) {
 
 // Shared memory
 __global__ void conv_shared(float *A, float *C, uint n, uint k, uint m) {
-    // Shared memory for the input matrix
     __shared__ float A_shared[BLOCK_SIZE][BLOCK_SIZE];
 
     const uint threadCol = threadIdx.x % BLOCK_SIZE;
@@ -77,25 +76,19 @@ __global__ void conv_shared(float *A, float *C, uint n, uint k, uint m) {
     const uint row = blockIdx.x * BLOCK_SIZE + threadRow;
     const uint col = blockIdx.y * BLOCK_SIZE + threadCol;
 
-    // Load elements into shared memory within bounds
     if (row < m && col < n) {
         A_shared[threadRow][threadCol] = A[row * n + col];
     } else {
-        A_shared[threadRow][threadCol] = 0.0f; // Pad with zero if outside bounds
+        A_shared[threadRow][threadCol] = 0.0f; 
     }
-
-    // Synchronize to ensure all threads have loaded the data into shared memory
     __syncthreads();
 
-    // Perform convolution if within output bounds
     if (row < (m + 1 - k) && col < (n + 1 - k)) {
         float sum = 0.0f;
         for (int i = 0; i < k; i++) {
             for (int j = 0; j < k; j++) {
-                // Ensure the accesses are within shared memory bounds
                 int sharedRow = threadRow + i - k / 2;
                 int sharedCol = threadCol + j - k / 2;
-
                 if (sharedRow >= 0 && sharedRow < BLOCK_SIZE && sharedCol >= 0 && sharedCol < BLOCK_SIZE) {
                     sum += A_shared[sharedRow][sharedCol] * window_cm[k * i + j];
                 }
@@ -103,8 +96,6 @@ __global__ void conv_shared(float *A, float *C, uint n, uint k, uint m) {
         }
         C[(n + 1 - k) * row + col] = sum;
     }
-
-    // Synchronize before finishing
     __syncthreads();
 }
 
