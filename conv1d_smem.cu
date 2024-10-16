@@ -14,7 +14,7 @@ extern "C" {
 __constant__ float filter_cm[64];
 __global__ void conv_1dhz_smem(float *input, float *output, int width,
                               int height, int f_size) {
-    __shared__ float shared_mem[BLOCK_SIZE*PADDING];
+    extern __shared__ float shared_mem[];
     
     const int row = blockIdx.y * blockDim.y + threadIdx.y;
     const int col = blockIdx.x * blockDim.x + threadIdx.x;
@@ -75,9 +75,9 @@ int main() {
     // Image and kernel parameters
     const unsigned int width = 4096;
     const unsigned int height = 4096;
-    const unsigned int filter_size = 31;
+    const unsigned int filter_size = 41;
     const unsigned int image_size = width * height * sizeof(float);
-    size_t shared_mem_size = (BLOCK_SIZE + 2 * (filter_size / 2)) * BLOCK_SIZE * sizeof(float);
+    size_t shared_mem_size = (BLOCK_SIZE + 64) * BLOCK_SIZE * sizeof(float);
 
     // Allocate host memory
     float *h_input = (float*)malloc(image_size);
