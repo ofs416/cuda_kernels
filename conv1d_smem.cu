@@ -7,14 +7,55 @@ extern "C" {
 #include "cpu_functions.h"
 }
 
-#define BLOCK_SIZE 32
+#define BLOCK_SIZE 16
+#define PADDING (BLOCK_SIZE + 64)  // Assuming max filter size of 64
+
 
 // Constant memory
 __constant__ float filter_cm[64];
-// This currently performs better as the kernel gets larger as is able to better take 
-// advantage of within-warp broadcast
+// We now pad using 
 __global__ void conv_1dhz_smem(float *input, float *output, int width,
                                                      int height, int f_size) {
+    __shared__ float shared_mem[BLOCK_SIZE][PADDING];
+    
+    const int row = blockIdx.y * blockDim.y + threadIdx.y;
+    const int col = blockIdx.x * blockDim.x + threadIdx.x;
+    const int ty = threadIdx.y;
+    const int tx = threadIdx.x;
+    const int radius = f_size / 2;
+    
+    // Load main block data
+    if (row < height) {
+        if (col < width) {
+            shared_mem[ty][tx + radius] = input[row * width + col];
+        }
+        if (tx < radius) {
+            int input_col = col - radius;
+            if (input_col >= 0) {
+                shared_mem[ty][tx] = input[row * width + input_col];
+            } else {
+                shared_mem[ty][tx] = 0.0f;
+            }
+        }
+        if (tx < radius) {
+            int input_col = col + BLOCK_SIZE;
+            if (input_col < width) {
+                shared_mem[ty][tx + BLOCK_SIZE + radius] = input[row * width + input_col];
+            } else {
+                shared_mem[ty][tx + BLOCK_SIZE + radius] = 0.0f;
+            }
+        }
+    }
+    __syncthreads();
+    
+    if (row < height && col < width) {
+        float sum = 0.0f;
+        #pragma unroll
+        for (int j = 0; j < f_size; j++) {
+            sum += shared_mem[ty][tx + j] * filter_cm[j];
+        }
+        output[row * width + col] = sum;
+    }
 }
 
 
