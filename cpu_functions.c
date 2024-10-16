@@ -57,14 +57,18 @@ void conv_1dhz_cpu(const float* input, float* output, int width, int height, con
     }
 }
 
-// Helper function to compare CPU and GPU results
-int compare_results(const float* cpu_output, const float* gpu_output, int width, int height, float tolerance) {
-    for (int i = 0; i < width * height; ++i) {
-        if (fabsf(cpu_output[i] - gpu_output[i]) > tolerance) {
-            printf("Mismatch at index %d: CPU = %f, GPU = %f\n", i, cpu_output[i], gpu_output[i]);
-            return 0;  // False
+void compare_results(float* cpu_output, float* gpu_output, 
+                   int width, int height, float tolerance) {
+    int mismatches = 0;
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+            int idx = i * width + j;
+            float diff = fabs(cpu_output[idx] - gpu_output[idx]);
+            if (diff > tolerance) {
+                mismatches += 1;
+            }
         }
     }
-    return 1;  // True
+    printf("%i mismathces \n", mismatches);
 }
 
