@@ -7,7 +7,7 @@ extern "C" {
 #include "cpu_functions.h"
 }
 
-#define BLOCK_SIZE 16
+#define BLOCK_SIZE 32
 
 // Constant memory
 __constant__ float filter_cm[64];
