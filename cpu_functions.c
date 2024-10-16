@@ -1,4 +1,6 @@
+#include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include <time.h>
 
 // Timing
@@ -36,5 +38,33 @@ void matrixMultiplicationCPU (float *A, float *B, float *C, int n, int k, int m)
       C[i * n + j] = sum;
     }
   }
+}
+
+void conv_1dhz_cpu(const float* input, float* output, int width, int height, const float* filter, int filter_size) {
+    int padding = filter_size / 2;
+
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            float sum = 0.0f;
+            for (int i = 0; i < filter_size; ++i) {
+                int input_x = x + i - padding;
+                if (input_x >= 0 && input_x < width) {
+                    sum += input[y * width + input_x] * filter[i];
+                }
+            }
+            output[y * width + x] = sum;
+        }
+    }
+}
+
+// Helper function to compare CPU and GPU results
+int compare_results(const float* cpu_output, const float* gpu_output, int width, int height, float tolerance) {
+    for (int i = 0; i < width * height; ++i) {
+        if (fabsf(cpu_output[i] - gpu_output[i]) > tolerance) {
+            printf("Mismatch at index %d: CPU = %f, GPU = %f\n", i, cpu_output[i], gpu_output[i]);
+            return 0;  // False
+        }
+    }
+    return 1;  // True
 }
 
