@@ -10,7 +10,7 @@ extern "C" {
 #define BLOCK_SIZE 16
 
 // Constant memory
-__constant__ float filter_cm[5];
+__constant__ float filter_cm[64];
 
 __global__ void conv_1dhz_cm(float *input, float *output, int width,
                                                      int height, int f_size) {
@@ -43,7 +43,7 @@ int main() {
     // Image and kernel parameters
     const unsigned int width = 4096;
     const unsigned int height = 4096;
-    const unsigned int filter_size = 5;
+    const unsigned int filter_size = 63;
     const unsigned int image_size = width * height * sizeof(float);
 
     // Allocate host memory
