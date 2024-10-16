@@ -11,7 +11,8 @@ extern "C" {
 
 // Constant memory
 __constant__ float filter_cm[64];
-
+// This currently performs better as the kernel gets larger as is able to better take 
+// advantage of within-warp broadcast
 __global__ void conv_1dhz_cm(float *input, float *output, int width,
                                                      int height, int f_size) {
     const int row = blockIdx.y * blockDim.y + threadIdx.y;
