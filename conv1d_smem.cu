@@ -8,55 +8,41 @@ extern "C" {
 }
 
 #define BLOCK_SIZE 16
-#define PADDING (BLOCK_SIZE + 64)
+#define MAX_FILTER_SIZE 63
+#define SMEM_SIZE (BLOCK_SIZE + MAX_FILTER_SIZE - 1)
 
-// Constant memory
-__constant__ float filter_cm[64];
-__global__ void conv_1dhz_smem(float *input, float *output, int width,
-                              int height, int f_size) {
+__constant__ float filter_cm[MAX_FILTER_SIZE];
+
+__global__ void conv_1dhz_smem(float *input, float *output, int width, 
+                              int height, int filter_size) {
     extern __shared__ float shared_mem[];
     
-    const int row = blockIdx.y * blockDim.y + threadIdx.y;
-    const int col = blockIdx.x * blockDim.x + threadIdx.x;
-    const int ty = threadIdx.y;
     const int tx = threadIdx.x;
-    const int radius = f_size / 2;
+    const int ty = threadIdx.y;
+    const int row = blockIdx.y * BLOCK_SIZE + ty;
+    const int col = blockIdx.x * BLOCK_SIZE + tx;
+    const int radius = filter_size / 2;
     
-    // Load main block data
-    if (row < height) {
-        if (col < width) {
-            shared_mem[ty * PADDING + tx + radius] = input[row * width + col];
-        }
-        
-        // Load left halo
-        if (tx < radius) {
-            int input_col = col - radius;
-            if (input_col >= 0) {
-                shared_mem[ty * PADDING + tx] = input[row * width + input_col];
-            } else {
-                shared_mem[ty * PADDING + tx] = 0.0f;
-            }
-        }
-        
-        // Load right halo
-        if (tx < radius) {
-            int input_col = col + BLOCK_SIZE;
-            if (input_col < width) {
-                shared_mem[ty * PADDING + tx + BLOCK_SIZE + radius] = 
-                    input[row * width + input_col];
-            } else {
-                shared_mem[ty * PADDING + tx + BLOCK_SIZE + radius] = 0.0f;
-            }
+    if (row >= height) return;
+
+    float* row_shared = &shared_mem[ty * SMEM_SIZE];
+    const int block_start = blockIdx.x * BLOCK_SIZE - radius;
+    for (int i = tx; i < (BLOCK_SIZE + filter_size - 1); i += BLOCK_SIZE) {
+        int global_idx = block_start + i;
+        if (global_idx >= 0 && global_idx < width) {
+            row_shared[i] = input[row * width + global_idx];
+        } else {
+            row_shared[i] = 0.0f;
         }
     }
-    
     __syncthreads();
     
-    if (row < height && col < width) {
+    // Compute convolution only for valid output positions
+    if (col < width) {
         float sum = 0.0f;
         #pragma unroll
-        for (int j = 0; j < f_size; j++) {
-            sum += shared_mem[ty * PADDING + tx + j] * filter_cm[j];
+        for (int i = 0; i < filter_size; i++) {
+            sum += row_shared[tx + i] * filter_cm[i];
         }
         output[row * width + col] = sum;
     }
@@ -75,9 +61,8 @@ int main() {
     // Image and kernel parameters
     const unsigned int width = 4096;
     const unsigned int height = 4096;
-    const unsigned int filter_size = 41;
+    const unsigned int filter_size = 63;
     const unsigned int image_size = width * height * sizeof(float);
-    size_t shared_mem_size = (BLOCK_SIZE + 64) * BLOCK_SIZE * sizeof(float);
 
     // Allocate host memory
     float *h_input = (float*)malloc(image_size);
@@ -99,9 +84,12 @@ int main() {
     check_cuda_error(cudaMemcpy(d_input, h_input, image_size, cudaMemcpyHostToDevice), "cudaMemcpy H2D input");
     check_cuda_error(cudaMemcpyToSymbol(filter_cm, h_filter, filter_size * sizeof(float)), "cudaMemcpyToSymbol kernel");
 
-    // Launch kernel
+    // Launch configuration
+    size_t shared_mem_size = BLOCK_SIZE * SMEM_SIZE * sizeof(float);
     dim3 blockDim(BLOCK_SIZE, BLOCK_SIZE);
-    dim3 gridDim((width + BLOCK_SIZE - 1) / BLOCK_SIZE, (height + BLOCK_SIZE - 1) / BLOCK_SIZE);
+    dim3 gridDim((width + blockDim.x - 1) / blockDim.x, 
+            (height + blockDim.y - 1) / blockDim.y);
+
 
     // Check computation
     // Compute convolution on CPU
@@ -115,11 +103,7 @@ int main() {
     // Copy result back to host
     check_cuda_error(cudaMemcpy(h_output_gpu, d_output, image_size, cudaMemcpyDeviceToHost), "cudaMemcpy D2H output");
     // Compare CPU and GPU results
-    if (compare_results(h_output_cpu, h_output_gpu, width, height, 1e-5f)) {
-        printf("CPU and GPU results match!\n");
-    } else {
-        printf("CPU and GPU results do not match.\n");
-    }
+    compare_results(h_output_cpu, h_output_gpu, width, height, 1e-5f);
 
     // Warm-up runs
     printf("Performing warm-up runs...\n");
