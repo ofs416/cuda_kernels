@@ -11,9 +11,9 @@ extern "C" {
 }
 #include "conv_kernels.cuh"
 
-#define N 2048  
+#define N 4096  
 #define K 5  
-#define M 2048 
+#define M 4096 
 #define BLOCK_SIZE 16
 
 __constant__ float window_cm[K*K];
