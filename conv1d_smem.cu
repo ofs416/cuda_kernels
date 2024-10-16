@@ -13,8 +13,8 @@ extern "C" {
 
 __constant__ float filter_cm[MAX_FILTER_SIZE];
 
-__global__ void conv_1dhz_smem(float *input, float *output, int width, 
-                              int height, int filter_size) {
+__global__ void conv_1d_smem(float *input, float *output, int width, 
+                              int height, int filter_size, bool transpose) {
     extern __shared__ float shared_mem[];
     
     const int tx = threadIdx.x;
@@ -23,28 +23,35 @@ __global__ void conv_1dhz_smem(float *input, float *output, int width,
     const int col = blockIdx.x * BLOCK_SIZE + tx;
     const int radius = filter_size / 2;
     
-    if (row >= height) return;
+    int trans_width = transpose ? height : width;
+    int trans_height = transpose ? width : height;
+    int input_row = transpose ? col : row;
+    int input_col = transpose ? row : col;
+    
+    if (input_row >= trans_height) return;
 
     float* row_shared = &shared_mem[ty * SMEM_SIZE];
     const int block_start = blockIdx.x * BLOCK_SIZE - radius;
     for (int i = tx; i < (BLOCK_SIZE + filter_size - 1); i += BLOCK_SIZE) {
         int global_idx = block_start + i;
-        if (global_idx >= 0 && global_idx < width) {
-            row_shared[i] = input[row * width + global_idx];
+        if (global_idx >= 0 && global_idx < trans_width) {
+            row_shared[i] = input[input_row * trans_width + global_idx];
         } else {
             row_shared[i] = 0.0f;
         }
     }
     __syncthreads();
-    
-    // Compute convolution only for valid output positions
-    if (col < width) {
+    if (input_col < trans_width) {
         float sum = 0.0f;
         #pragma unroll
         for (int i = 0; i < filter_size; i++) {
             sum += row_shared[tx + i] * filter_cm[i];
         }
-        output[row * width + col] = sum;
+        if (transpose) {
+            output[input_col * trans_height + input_row] = sum;
+        } else {
+            output[input_row * trans_width + input_col] = sum;
+        }
     }
 }
 
@@ -95,7 +102,7 @@ int main() {
     // Compute convolution on CPU
     conv_1dhz_cpu(h_input, h_output_cpu, width, height, h_filter, filter_size);
     // compute convolution with custom kernel
-    conv_1dhz_smem<<<gridDim, blockDim, shared_mem_size>>>(d_input, d_output, width, height, filter_size);
+     conv_1d_smem<<<gridDim, blockDim, shared_mem_size>>>(d_input, d_output, width, height, filter_size, false);
     // Check for kernel launch errors
     check_cuda_error(cudaGetLastError(), "Kernel launch");
     // Wait for kernel to finish
@@ -108,7 +115,7 @@ int main() {
     // Warm-up runs
     printf("Performing warm-up runs...\n");
     for (int i = 0; i < 5; i++) {
-        conv_1dhz_smem<<<gridDim, blockDim, shared_mem_size>>>(d_input, d_output, width, height, filter_size);
+         conv_1d_smem<<<gridDim, blockDim, shared_mem_size>>>(d_input, d_output, width, height, filter_size, false);
         // Wait for kernel to finish
         check_cuda_error(cudaDeviceSynchronize(), "cudaDeviceSynchronize");
     }
@@ -124,7 +131,7 @@ int main() {
     long long flops = 2LL * width * height * filter_size;
     check_cuda_error(cudaEventRecord(start), "start event recording");
     for (int i = 0; i < repeats; i++) {
-        conv_1dhz_smem<<<gridDim, blockDim, shared_mem_size>>>(d_input, d_output, width, height, filter_size);
+         conv_1d_smem<<<gridDim, blockDim, shared_mem_size>>>(d_input, d_output, width, height, filter_size, false);
     }
     check_cuda_error(cudaEventRecord(stop), "stop event recording");
     check_cuda_error(cudaEventSynchronize(start), "cudaDeviceSynchronize");
