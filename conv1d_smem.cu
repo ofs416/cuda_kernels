@@ -8,15 +8,13 @@ extern "C" {
 }
 
 #define BLOCK_SIZE 16
-#define PADDING (BLOCK_SIZE + 64)  // Assuming max filter size of 64
-
+#define PADDING (BLOCK_SIZE + 64)
 
 // Constant memory
 __constant__ float filter_cm[64];
-// We now pad using 
 __global__ void conv_1dhz_smem(float *input, float *output, int width,
-                                                     int height, int f_size) {
-    __shared__ float shared_mem[BLOCK_SIZE][PADDING];
+                              int height, int f_size) {
+    __shared__ float shared_mem[BLOCK_SIZE*PADDING];
     
     const int row = blockIdx.y * blockDim.y + threadIdx.y;
     const int col = blockIdx.x * blockDim.x + threadIdx.x;
@@ -27,32 +25,38 @@ __global__ void conv_1dhz_smem(float *input, float *output, int width,
     // Load main block data
     if (row < height) {
         if (col < width) {
-            shared_mem[ty][tx + radius] = input[row * width + col];
+            shared_mem[ty * PADDING + tx + radius] = input[row * width + col];
         }
+        
+        // Load left halo
         if (tx < radius) {
             int input_col = col - radius;
             if (input_col >= 0) {
-                shared_mem[ty][tx] = input[row * width + input_col];
+                shared_mem[ty * PADDING + tx] = input[row * width + input_col];
             } else {
-                shared_mem[ty][tx] = 0.0f;
+                shared_mem[ty * PADDING + tx] = 0.0f;
             }
         }
+        
+        // Load right halo
         if (tx < radius) {
             int input_col = col + BLOCK_SIZE;
             if (input_col < width) {
-                shared_mem[ty][tx + BLOCK_SIZE + radius] = input[row * width + input_col];
+                shared_mem[ty * PADDING + tx + BLOCK_SIZE + radius] = 
+                    input[row * width + input_col];
             } else {
-                shared_mem[ty][tx + BLOCK_SIZE + radius] = 0.0f;
+                shared_mem[ty * PADDING + tx + BLOCK_SIZE + radius] = 0.0f;
             }
         }
     }
+    
     __syncthreads();
     
     if (row < height && col < width) {
         float sum = 0.0f;
         #pragma unroll
         for (int j = 0; j < f_size; j++) {
-            sum += shared_mem[ty][tx + j] * filter_cm[j];
+            sum += shared_mem[ty * PADDING + tx + j] * filter_cm[j];
         }
         output[row * width + col] = sum;
     }
@@ -71,8 +75,9 @@ int main() {
     // Image and kernel parameters
     const unsigned int width = 4096;
     const unsigned int height = 4096;
-    const unsigned int filter_size = 63;
+    const unsigned int filter_size = 31;
     const unsigned int image_size = width * height * sizeof(float);
+    size_t shared_mem_size = (BLOCK_SIZE + 2 * (filter_size / 2)) * BLOCK_SIZE * sizeof(float);
 
     // Allocate host memory
     float *h_input = (float*)malloc(image_size);
@@ -102,7 +107,7 @@ int main() {
     // Compute convolution on CPU
     conv_1dhz_cpu(h_input, h_output_cpu, width, height, h_filter, filter_size);
     // compute convolution with custom kernel
-    conv_1dhz_smem<<<gridDim, blockDim>>>(d_input, d_output, width, height, filter_size);
+    conv_1dhz_smem<<<gridDim, blockDim, shared_mem_size>>>(d_input, d_output, width, height, filter_size);
     // Check for kernel launch errors
     check_cuda_error(cudaGetLastError(), "Kernel launch");
     // Wait for kernel to finish
@@ -119,7 +124,7 @@ int main() {
     // Warm-up runs
     printf("Performing warm-up runs...\n");
     for (int i = 0; i < 5; i++) {
-        conv_1dhz_smem<<<gridDim, blockDim>>>(d_input, d_output, width, height, filter_size);
+        conv_1dhz_smem<<<gridDim, blockDim, shared_mem_size>>>(d_input, d_output, width, height, filter_size);
         // Wait for kernel to finish
         check_cuda_error(cudaDeviceSynchronize(), "cudaDeviceSynchronize");
     }
@@ -135,7 +140,7 @@ int main() {
     long long flops = 2LL * width * height * filter_size;
     check_cuda_error(cudaEventRecord(start), "start event recording");
     for (int i = 0; i < repeats; i++) {
-        conv_1dhz_smem<<<gridDim, blockDim>>>(d_input, d_output, width, height, filter_size);
+        conv_1dhz_smem<<<gridDim, blockDim, shared_mem_size>>>(d_input, d_output, width, height, filter_size);
     }
     check_cuda_error(cudaEventRecord(stop), "stop event recording");
     check_cuda_error(cudaEventSynchronize(start), "cudaDeviceSynchronize");
