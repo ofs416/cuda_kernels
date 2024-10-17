@@ -13,7 +13,7 @@ extern "C" {
 
 __constant__ float filter_cm[MAX_FILTER_SIZE];
 
-__global__ void conv_1d_smem(float *input, float *output, int width, 
+__global__ void conv_1d_1dsmem(float *input, float *output, int width, 
                             int height, int filter_size, bool transpose) {
     extern __shared__ float shared_mem[];
     
@@ -92,16 +92,16 @@ int main() {
     check_cuda_error(cudaMemcpyToSymbol(filter_cm, h_filter, filter_size * sizeof(float)), "cudaMemcpyToSymbol kernel");
 
     // Launch configuration
-    size_t shared_mem_size = BLOCK_SIZE * SMEM_SIZE * sizeof(float);
+    size_t shared_mem_size =  SMEM_SIZE * sizeof(float);
     dim3 blockDim(BLOCK_SIZE, 1, 1);
-    dim3 gridDim((width + blockDim.x - 1) / blockDim.x, , height, 1;
+    dim3 gridDim((width + blockDim.x - 1) / blockDim.x, height, 1);
 
 
     // Check computation
     // Compute convolution on CPU
     conv_1dhz_cpu(h_input, h_output_cpu, width, height, h_filter, filter_size);
     // compute convolution with custom kernel
-     conv_1d_smem<<<gridDim, blockDim, shared_mem_size>>>(d_input, d_output, width, height, filter_size, false);
+     conv_1d_1dsmem<<<gridDim, blockDim, shared_mem_size>>>(d_input, d_output, width, height, filter_size, false);
     // Check for kernel launch errors
     check_cuda_error(cudaGetLastError(), "Kernel launch");
     // Wait for kernel to finish
@@ -114,7 +114,7 @@ int main() {
     // Warm-up runs
     printf("Performing warm-up runs...\n");
     for (int i = 0; i < 5; i++) {
-         conv_1d_smem<<<gridDim, blockDim, shared_mem_size>>>(d_input, d_output, width, height, filter_size, false);
+         conv_1d_1dsmem<<<gridDim, blockDim, shared_mem_size>>>(d_input, d_output, width, height, filter_size, false);
         // Wait for kernel to finish
         check_cuda_error(cudaDeviceSynchronize(), "cudaDeviceSynchronize");
     }
@@ -130,7 +130,7 @@ int main() {
     long long flops = 2LL * width * height * filter_size;
     check_cuda_error(cudaEventRecord(start), "start event recording");
     for (int i = 0; i < repeats; i++) {
-         conv_1d_smem<<<gridDim, blockDim, shared_mem_size>>>(d_input, d_output, width, height, filter_size, false);
+         conv_1d_1dsmem<<<gridDim, blockDim, shared_mem_size>>>(d_input, d_output, width, height, filter_size, false);
     }
     check_cuda_error(cudaEventRecord(stop), "stop event recording");
     check_cuda_error(cudaEventSynchronize(start), "cudaDeviceSynchronize");
