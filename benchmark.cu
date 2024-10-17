@@ -15,6 +15,17 @@ extern "C" {
 #define M 4096  
 #define BLOCK_SIZE 32
 
+#define BM_1D 64
+#define BN_1D 64
+#define BK_1D 8
+#define TM_1D 8
+
+#define BM 128
+#define BN 128
+#define BK 8
+#define TM 8
+#define TN 8
+
 int main() {
     float *h_A, *h_B, *h_C_cpu, *h_C_gpu;
     float *d_A, *d_B, *d_C;
@@ -57,10 +68,14 @@ int main() {
     dim3 blockDim(BLOCK_SIZE, BLOCK_SIZE);
     dim3 gridDim((N + BLOCK_SIZE - 1) / BLOCK_SIZE, (M + BLOCK_SIZE - 1) / BLOCK_SIZE);
     dim3 blockDim1D(BLOCK_SIZE * BLOCK_SIZE);
-    dim3 gridDim4((N + 64 - 1) / 64, (M + 64 - 1) / 64);
-    dim3 blockDim4((64 * 64) / 8);
-    dim3 gridDim5((N + 128 - 1) / 128, (M + 128 - 1) / 128);
-    dim3 blockDim5((128 * 128) / (8 * 8));
+
+    // Grid and block dimensions for 1D block tiling
+    dim3 blockDim1DTiling((BM_1D * BN_1D) / TM_1D); 
+    dim3 gridDim1DTiling((N + BN_1D - 1) / BN_1D, (M + BM_1D - 1) / BM_1D);
+
+    // Grid and block dimensions for 2D block tiling and vectorized
+    dim3 blockDim2DTiling((BM * BN) / (TM * TN));  // Each thread handles TM x TN elements
+    dim3 gridDim2DTiling((N + BN - 1) / BN, (M + BM - 1) / BM);
 
     float alpha = 1.0f;
     float beta = 0.0f;
@@ -68,21 +83,21 @@ int main() {
     // Warm-up runs
     printf("Performing warm-up runs...\n");
     for (int i = 0; i < 5; i++) {
+        cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, d_B, CUDA_R_32F,
+        N, d_A, CUDA_R_32F, K, &beta, d_C, CUDA_R_32F, N, CUBLAS_COMPUTE_32F,
+        CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+        cudaDeviceSynchronize();
         gemm<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
         cudaDeviceSynchronize();
         gemm_gmc<<<gridDim, blockDim1D>>>(d_A, d_B, d_C, N, K, M);
         cudaDeviceSynchronize();
         gemm_smem<<<gridDim, blockDim>>>(d_A, d_B, d_C, N, K, M);
         cudaDeviceSynchronize();
-        gemm_1DBlockTiling<64, 64, 8, 8><<<gridDim4, blockDim4>>>(d_A, d_B, d_C, N, K, M);
+        gemm_1DBlockTiling<<<gridDim1DTiling, blockDim1DTiling>>>(d_A, d_B, d_C, N, K, M);
         cudaDeviceSynchronize();
-        gemm_2DBlockTiling<128, 128, 8, 8, 8><<<gridDim5, blockDim5>>>(d_A, d_B, d_C, N, K, M);
+        gemm_2DBlockTiling<<<gridDim2DTiling, blockDim2DTiling>>>(d_A, d_B, d_C, N, K, M);
         cudaDeviceSynchronize();
-        cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, d_B, CUDA_R_32F,
-               N, d_A, CUDA_R_32F, K, &beta, d_C, CUDA_R_32F, N, CUBLAS_COMPUTE_32F,
-               CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-        cudaDeviceSynchronize();
-        gemm_vectorised<128, 128, 8, 8, 8><<<gridDim5, blockDim5>>>(d_A, d_B, d_C, N, K, M);
+        gemm_vectorised<<<gridDim2DTiling, blockDim2DTiling>>>(d_A, d_B, d_C, N, K, M);
         cudaDeviceSynchronize();
     }
 
@@ -163,7 +178,7 @@ int main() {
     // Benchmark implementation 4
     cudaEventRecord(start);
     for (int i = 0; i < repeats; i++) {
-        gemm_1DBlockTiling<64, 64, 8, 8><<<gridDim4, blockDim4>>>(d_A, d_B, d_C, N, K, M);
+        gemm_1DBlockTiling<<<gridDim1DTiling, blockDim1DTiling>>>(d_A, d_B, d_C, N, K, M);
     }
     cudaEventRecord(stop);
     cudaEventSynchronize(start);
@@ -178,7 +193,7 @@ int main() {
     // Benchmark implementation 5
     cudaEventRecord(start);
     for (int i = 0; i < repeats; i++) {
-        gemm_2DBlockTiling<128, 128, 8, 8, 8><<<gridDim5, blockDim5>>>(d_A, d_B, d_C, N, K, M);
+        gemm_2DBlockTiling<<<gridDim2DTiling, blockDim2DTiling>>>(d_A, d_B, d_C, N, K, M);
     }
     cudaEventRecord(stop);
     cudaEventSynchronize(start);
@@ -193,7 +208,7 @@ int main() {
     // Benchmark implementation 6
     cudaEventRecord(start);
     for (int i = 0; i < repeats; i++) {
-        gemm_vectorised<128, 128, 8, 8, 8><<<gridDim5, blockDim5>>>(d_A, d_B, d_C, N, K, M);
+        gemm_vectorised<<<gridDim2DTiling, blockDim2DTiling>>>(d_A, d_B, d_C, N, K, M);
     }
     cudaEventRecord(stop);
     cudaEventSynchronize(start);

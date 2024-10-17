@@ -1,10 +1,10 @@
 # Makefile
 
 # Compilers
-CC = gcc
+CC = gcc 
 NVCC = nvcc
 CFLAGS = -O3
-NVCCFLAGS = -O3
+NVCCFLAGS = -O3 
 LDFLAGS = -lcublas
 
 SOURCES = benchmark.cu gpu_functions.cu cpu_functions.c
