@@ -140,7 +140,7 @@ int main() {
     printf(
         "Avg time: %f ms, performance: %f GFLOP\n", 
         elapsed_time / repeats, 
-        (repeats * flops * 1e-9) / elapsed_time
+        (repeats * flops * 1e-6) / elapsed_time
     );
     
 

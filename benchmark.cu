@@ -123,7 +123,7 @@ int main() {
     cudaEventSynchronize(start);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&elapsed_time, start, stop);
-    double CuBlas_GFLOP = (repeats * flops * 1e-9) / elapsed_time;
+    double CuBlas_GFLOP = (repeats * flops * 1e-6) / elapsed_time;
     printf(
         "(CuBlas) Avg time: %f ms, performance: %f GFLOP, %f %% \n", 
         elapsed_time / repeats, 
@@ -142,8 +142,8 @@ int main() {
     printf(
         "(1) Avg time: %f ms, performance: %f GFLOP, %f %% \n", 
         elapsed_time / repeats, 
-        (repeats * flops * 1e-9) / elapsed_time,
-        (100 * (repeats * flops * 1e-9) / elapsed_time) / CuBlas_GFLOP);
+        (repeats * flops * 1e-6) / elapsed_time,
+        (100 * (repeats * flops * 1e-6) / elapsed_time) / CuBlas_GFLOP);
 
     // Benchmark implementation 2
     cudaEventRecord(start);
@@ -157,8 +157,8 @@ int main() {
     printf(
         "(2) Avg time: %f ms, performance: %f GFLOP, %f%% \n", 
         elapsed_time / repeats, 
-        (repeats * flops * 1e-9) / elapsed_time,
-        (100 * (repeats * flops * 1e-9) / elapsed_time) / CuBlas_GFLOP);
+        (repeats * flops * 1e-6) / elapsed_time,
+        (100 * (repeats * flops * 1e-6) / elapsed_time) / CuBlas_GFLOP);
 
     // Benchmark implementation 2
     cudaEventRecord(start);
@@ -172,8 +172,8 @@ int main() {
     printf(
         "(3) Avg time: %f ms, performance: %f GFLOP, %f %% \n", 
         elapsed_time / repeats, 
-        (repeats * flops * 1e-9) / elapsed_time,
-        (100 * (repeats * flops * 1e-9) / elapsed_time) / CuBlas_GFLOP);
+        (repeats * flops * 1e-6) / elapsed_time,
+        (100 * (repeats * flops * 1e-6) / elapsed_time) / CuBlas_GFLOP);
 
     // Benchmark implementation 4
     cudaEventRecord(start);
@@ -187,8 +187,8 @@ int main() {
     printf(
         "(4) Avg time: %f ms, performance: %f GFLOP, %f %% \n", 
         elapsed_time / repeats, 
-        (repeats * flops * 1e-9) / elapsed_time,
-        (100 * (repeats * flops * 1e-9) / elapsed_time) / CuBlas_GFLOP);
+        (repeats * flops * 1e-6) / elapsed_time,
+        (100 * (repeats * flops * 1e-6) / elapsed_time) / CuBlas_GFLOP);
 
     // Benchmark implementation 5
     cudaEventRecord(start);
@@ -202,8 +202,8 @@ int main() {
     printf(
         "(5) Avg time: %f ms, performance: %f GFLOP, %f %% \n", 
         elapsed_time / repeats, 
-        (repeats * flops * 1e-9) / elapsed_time,
-        (100 * (repeats * flops * 1e-9) / elapsed_time) / CuBlas_GFLOP);
+        (repeats * flops * 1e-6) / elapsed_time,
+        (100 * (repeats * flops * 1e-6) / elapsed_time) / CuBlas_GFLOP);
 
     // Benchmark implementation 6
     cudaEventRecord(start);
@@ -217,8 +217,8 @@ int main() {
     printf(
         "(6) Avg time: %f ms, performance: %f GFLOP, %f %% \n", 
         elapsed_time / repeats, 
-        (repeats * flops * 1e-9) / elapsed_time,
-        (100 * (repeats * flops * 1e-9) / elapsed_time) / CuBlas_GFLOP);
+        (repeats * flops * 1e-6) / elapsed_time,
+        (100 * (repeats * flops * 1e-6) / elapsed_time) / CuBlas_GFLOP);
 
 
     // Free memory

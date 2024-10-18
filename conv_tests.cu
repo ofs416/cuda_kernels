@@ -86,7 +86,7 @@ int main() {
     printf(
         "(naive) Avg time: %f ms, performance: %f GFLOP\n", 
         elapsed_time / repeats, 
-        (repeats * flops * 1e-9) / elapsed_time
+        (repeats * flops * 1e-6) / elapsed_time
     );
 
     // Implementation 2
@@ -101,7 +101,7 @@ int main() {
     printf(
         "(gmc) Avg time: %f ms, performance: %f GFLOP\n", 
         elapsed_time / repeats, 
-        (repeats * flops * 1e-9) / elapsed_time
+        (repeats * flops * 1e-6) / elapsed_time
     );
 
     // Implementation 3
@@ -116,7 +116,7 @@ int main() {
     printf(
         "(cm) Avg time: %f ms, performance: %f GFLOP\n", 
         elapsed_time / repeats, 
-        (repeats * flops * 1e-9) / elapsed_time
+        (repeats * flops * 1e-6) / elapsed_time
     );
 
     // Implementation 4
@@ -131,7 +131,7 @@ int main() {
     printf(
         "(shared) Avg time: %f ms, performance: %f GFLOP\n", 
         elapsed_time / repeats, 
-        (repeats * flops * 1e-9) / elapsed_time
+        (repeats * flops * 1e-6) / elapsed_time
     );
     
     
