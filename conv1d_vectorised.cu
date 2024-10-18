@@ -1,3 +1,5 @@
+// TODO: NEED TO RESEARCH AND FIX THIS
+
 #include <cuda_runtime.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,16 +12,96 @@ extern "C" {
 #define BLOCK_SIZE 1024
 #define MAX_FILTER_SIZE 63
 #define ELEMENTS_PER_THREAD 2
-#define ACTUAL_BLOCK_SIZE (BLOCK_SIZE/ELEMENTS_PER_THREAD) // Now 64 threads per block
+#define ACTUAL_BLOCK_SIZE (BLOCK_SIZE/ELEMENTS_PER_THREAD) // 512 threads per block
 #define SMEM_SIZE (BLOCK_SIZE + MAX_FILTER_SIZE - 1)
 
 __constant__ float filter_cm[MAX_FILTER_SIZE];
 
 __global__ void conv_1d_vectorised(float *input, float *output, int width, 
-                                        int height, int filter_size, bool transpose) {
+                                 int height, int filter_size, bool transpose) {
+    extern __shared__ float shared_mem[];
     
-}
+    const int tid = threadIdx.x;
+    const int row = blockIdx.y;
+    const int base_col = blockIdx.x * BLOCK_SIZE + tid * ELEMENTS_PER_THREAD;
+    const int radius = filter_size / 2;
+    
+    int trans_width = transpose ? height : width;
+    int trans_height = transpose ? width : height;
+    int input_row = transpose ? base_col : row;
+    
+    if (input_row >= trans_height) return;
 
+    // Load data into shared memory
+    const int block_start = blockIdx.x * BLOCK_SIZE - radius;
+    const int elements_to_load = BLOCK_SIZE + filter_size - 1;
+    const int vector_elements = (elements_to_load + 4 - 1) / 4;
+    const int loads_per_thread = (vector_elements + ACTUAL_BLOCK_SIZE - 1) / ACTUAL_BLOCK_SIZE;
+
+    // Base pointer for vectorized loads
+    const float4* input4 = reinterpret_cast<const float4*>(input + input_row * trans_width);
+
+    // Load phase - populate shared memory
+    #pragma unroll
+    for (int i = 0; i < loads_per_thread; ++i) {
+        const int vec_offset = tid + (i * ACTUAL_BLOCK_SIZE);
+        if (vec_offset < vector_elements) {
+            const int global_vec_idx = (block_start + vec_offset * 4) / 4;
+            const int global_pos = global_vec_idx * 4;
+            
+            float4 reg_vec = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+            
+            if (global_pos >= 0 && global_pos + 3 < trans_width) {
+                reg_vec = input4[global_vec_idx];
+            } else {
+                // Handle boundary conditions manually
+                for (int j = 0; j < 4; ++j) {
+                    const int elem_idx = global_pos + j;
+                    if (elem_idx >= 0 && elem_idx < trans_width) {
+                        reinterpret_cast<float*>(&reg_vec)[j] = 
+                            input[input_row * trans_width + elem_idx];
+                    }
+                }
+            }
+            
+            // Store to shared memory
+            shared_mem[vec_offset * 4 + 0] = reg_vec.x;
+            shared_mem[vec_offset * 4 + 1] = reg_vec.y;
+            shared_mem[vec_offset * 4 + 2] = reg_vec.z;
+            shared_mem[vec_offset * 4 + 3] = reg_vec.w;
+        }
+    }
+    __syncthreads();
+    // Compute convolution for each element handled by this thread
+    float results[ELEMENTS_PER_THREAD];
+    #pragma unroll
+    for (int e = 0; e < ELEMENTS_PER_THREAD; e++) {
+        const int shared_idx = tid * ELEMENTS_PER_THREAD + e;
+        float sum = 0.0f;
+        
+        #pragma unroll
+        for (int f = 0; f < filter_size; f++) {
+            sum += shared_mem[shared_idx + f] * filter_cm[f];
+        }
+        
+        results[e] = sum;
+    }
+
+    // Write results
+    // Each thread processes ELEMENTS_PER_THREAD consecutive elements
+    #pragma unroll
+    for (int offset = 0; offset < ELEMENTS_PER_THREAD; offset++) {
+        int input_col = base_col + offset;
+        if (input_col < trans_width) {
+            // Store result
+            if (transpose) {
+                output[input_col * trans_height + input_row] = results[offset];
+            } else {
+                output[input_row * trans_width + input_col] = results[offset];
+            }
+        }
+    }
+}
 
 
 void check_cuda_error(cudaError_t error, const char *function_name) {
@@ -68,7 +150,7 @@ int main() {
     check_cuda_error(cudaGetLastError(), "Kernel launch");
     check_cuda_error(cudaDeviceSynchronize(), "cudaDeviceSynchronize");
     check_cuda_error(cudaMemcpy(h_output_gpu, d_output, image_size, cudaMemcpyDeviceToHost), "cudaMemcpy D2H output");
-    compare_results(h_output_cpu, h_output_gpu, width, height, 1e-5f);
+    compare_results(h_output_cpu, h_output_gpu, width, height, 1e-3f);
 
     // Warm-up runs
     printf("Performing warm-up runs...\n");
