@@ -213,8 +213,8 @@ __global__ void gemm_vectorised (float *A, float *B, float *C, int n, int k, int
 
     const uint cRow = blockIdx.y;
     const uint cCol = blockIdx.x;
-    const int threadCol = threadIdx.x % (BN / TM);
-    const int threadRow = threadIdx.x / (BN / TM);
+    const int threadCol = threadIdx.x % (BN / TN);
+    const int threadRow = threadIdx.x / (BN / TN);
 
     __shared__ float A_shared[BM * BK];
     __shared__ float B_shared[BK * BN];
@@ -229,9 +229,9 @@ __global__ void gemm_vectorised (float *A, float *B, float *C, int n, int k, int
     const uint innerRowB = threadIdx.x / (BN / 4);
     const uint innerColB = threadIdx.x % (BN / 4);
 
-    float threadResults[BK * TM] = {0.0};
-    float regM[BK] = {0.0};
-    float regN[TM] = {0.0};
+    float threadResults[TM * TN] = {0.0};
+    float regM[TM] = {0.0};
+    float regN[TN] = {0.0};
 
     for (uint blkIdx = 0; blkIdx < k; blkIdx += BK) {
         float4 tmp =
@@ -250,30 +250,30 @@ __global__ void gemm_vectorised (float *A, float *B, float *C, int n, int k, int
 
         for (uint dotIdx = 0; dotIdx < BK; ++dotIdx) {
             for (uint i = 0; i < BK; ++i) {
-                regM[i] = A_shared[dotIdx * BM + threadRow * BK + i];
+                regM[i] = A_shared[dotIdx * BM + threadRow * TM + i];
             }
             for (uint i = 0; i < TM; ++i) {
-                regN[i] = B_shared[dotIdx * BN + threadCol * TM + i];
+                regN[i] = B_shared[dotIdx * BN + threadCol * TN + i];
             }
-            for (uint resIdxM = 0; resIdxM < BK; ++resIdxM) {
-                for (uint resIdxN = 0; resIdxN < TM; ++resIdxN) {
-                    threadResults[resIdxM * TM + resIdxN] +=
+            for (uint resIdxM = 0; resIdxM < TM; ++resIdxM) {
+                for (uint resIdxN = 0; resIdxN < TN; ++resIdxN) {
+                    threadResults[resIdxM * TN + resIdxN] +=
                     regM[resIdxM] * regN[resIdxN];
                 }
             }
         }
         __syncthreads();
     }
-    for (uint resIdxM = 0; resIdxM < BK; resIdxM += 1) {
-        for (uint resIdxN = 0; resIdxN < TM; resIdxN += 4) {
+    for (uint resIdxM = 0; resIdxM < TM; resIdxM += 1) {
+        for (uint resIdxN = 0; resIdxN < TN; resIdxN += 4) {
             float4 tmp = reinterpret_cast<float4 *>(
-            &C[(threadRow * BK + resIdxM) * n + threadCol * TM + resIdxN])[0];
-            tmp.x = threadResults[resIdxM * TM + resIdxN];
-            tmp.y = threadResults[resIdxM * TM + resIdxN + 1];
-            tmp.z = threadResults[resIdxM * TM + resIdxN + 2];
-            tmp.w = threadResults[resIdxM * TM + resIdxN + 3];
+            &C[(threadRow * TM + resIdxM) * n + threadCol * TN + resIdxN])[0];
+            tmp.x = threadResults[resIdxM * TN + resIdxN];
+            tmp.y = threadResults[resIdxM * TN + resIdxN + 1];
+            tmp.z = threadResults[resIdxM * TN + resIdxN + 2];
+            tmp.w = threadResults[resIdxM * TN + resIdxN + 3];
             reinterpret_cast<float4 *>(
-            &C[(threadRow * BK + resIdxM) * n + threadCol * TM + resIdxN])[0] =
+            &C[(threadRow * TM + resIdxM) * n + threadCol * TN + resIdxN])[0] =
             tmp;
         }
     }
