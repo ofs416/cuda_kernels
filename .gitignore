@@ -5,3 +5,5 @@
 *.bin
 *.dll
 *.so
+*Model/data
+*.pth
